@@ -629,31 +629,36 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (queueSource == null) return;
 
     List<Track> tracks = [];
-    switch (queueSource!.source) {
-      case 'flow':
-        tracks = await deezerAPI.flow();
-        break;
-      //SmartRadio/Artist radio
-      case 'smartradio':
-        tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
-        break;
-      //Library shuffle
-      case 'libraryshuffle':
-        tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
-        break;
-      case 'mix':
-        tracks = await deezerAPI.playMix(queueSource!.id ?? '');
-        break;
-      case 'playlist':
-        // Get current position
-        int pos = queue.value.length;
-        // Load 25 more tracks from playlist
-        tracks =
-            await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
-        break;
-      default:
-        Logger.root.info('Reached end of queue source: ${queueSource!.source}');
-        break;
+    try {
+      switch (queueSource!.source) {
+        case 'flow':
+          tracks = await deezerAPI.flow();
+          break;
+        //SmartRadio/Artist radio
+        case 'smartradio':
+          tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
+          break;
+        //Library shuffle
+        case 'libraryshuffle':
+          tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
+          break;
+        case 'mix':
+          tracks = await deezerAPI.playMix(queueSource!.id ?? '');
+          break;
+        case 'playlist':
+          // Get current position
+          int pos = queue.value.length;
+          // Load 25 more tracks from playlist
+          tracks =
+              await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
+          break;
+        default:
+          Logger.root.info('Reached end of queue source: ${queueSource!.source}');
+          break;
+      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading more tracks at queue end', e, st);
+      return;
     }
 
     // Deduplicate tracks already in queue with the same id
@@ -676,6 +681,10 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   void _onError(err, stacktrace, {bool stopService = false}) {
     Logger.root.severe('Error from audioservice: ${err.code}', err);
+    Fluttertoast.showToast(
+        msg: 'Playback error, please try again.'.i18n,
+        gravity: ToastGravity.BOTTOM,
+        toastLength: Toast.LENGTH_SHORT);
     if (stopService) stop();
   }
 
@@ -880,14 +889,22 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   //Play mix by track
   Future playMix(String trackId, String trackTitle) async {
-    List<Track> tracks = await deezerAPI.playMix(trackId);
-    playFromTrackList(
-        tracks,
-        tracks[0].id ?? '',
-        QueueSource(
-            id: trackId,
-            text: 'Mix based on'.i18n + ' $trackTitle',
-            source: 'mix'));
+    try {
+      List<Track> tracks = await deezerAPI.playMix(trackId);
+      playFromTrackList(
+          tracks,
+          tracks[0].id ?? '',
+          QueueSource(
+              id: trackId,
+              text: 'Mix based on'.i18n + ' $trackTitle',
+              source: 'mix'));
+    } catch (e, st) {
+      Logger.root.severe('Error starting mix playback', e, st);
+      Fluttertoast.showToast(
+          msg: 'Could not load mix, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
+    }
   }
 
   //Play from artist top tracks
@@ -942,11 +959,20 @@ class AudioPlayerHandler extends BaseAudioHandler
         return;
       }
 
-      //Flow songs cannot be accessed by smart track list call
-      if (stl.id == 'flow') {
-        stl.tracks = await deezerAPI.flow(type: stl.flowType);
-      } else {
-        stl = await deezerAPI.smartTrackList(stl.id ?? '');
+      try {
+        //Flow songs cannot be accessed by smart track list call
+        if (stl.id == 'flow') {
+          stl.tracks = await deezerAPI.flow(type: stl.flowType);
+        } else {
+          stl = await deezerAPI.smartTrackList(stl.id ?? '');
+        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading smart track list', e, st);
+        Fluttertoast.showToast(
+            msg: 'Could not load tracks, please check your connection.'.i18n,
+            gravity: ToastGravity.BOTTOM,
+            toastLength: Toast.LENGTH_SHORT);
+        return;
       }
     }
     QueueSource queueSource = QueueSource(
