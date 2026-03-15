@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
 import 'package:i18n_extension/i18n_extension.dart';
 import 'package:logging/logging.dart';
@@ -154,6 +155,10 @@ class _LoginMainWrapperState extends State<LoginMainWrapper> {
       if (b && mounted) setState(() => settings.offlineMode = false);
     }).catchError((e, st) {
       Logger.root.severe('Error during authorization in initState', e, st);
+      Fluttertoast.showToast(
+          msg: 'Could not connect to Deezer, running in offline mode.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_LONG);
     });
     //Global logOut function
     logOut = _logOut;

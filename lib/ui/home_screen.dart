@@ -131,9 +131,11 @@ class _HomePageScreenState extends State<HomePageScreen> {
 
   void _loadHomePage() async {
     //Load local
+    bool cacheLoaded = false;
     try {
       HomePage hp = await HomePage().load();
       if (mounted) setState(() => _homePage = hp);
+      cacheLoaded = true;
     } catch (e, st) {
       Logger.root.warning('Error loading cached home page', e, st);
     }
@@ -142,12 +144,22 @@ class _HomePageScreenState extends State<HomePageScreen> {
       if (settings.offlineMode) await deezerAPI.authorize();
       HomePage hp = await deezerAPI.homePage();
       if (_cancel) return;
-      if (hp.sections.isEmpty) return;
+      if (hp.sections.isEmpty) {
+        // If no API data and no cache, show error
+        if (mounted && !cacheLoaded && _homePage == null) {
+          setState(() => _error = true);
+        }
+        return;
+      }
       if (mounted) setState(() => _homePage = hp);
       //Save to cache
       await _homePage?.save();
     } catch (e, st) {
       Logger.root.severe('Error loading home page from API', e, st);
+      // If no cache was loaded either, show error screen
+      if (mounted && !cacheLoaded && _homePage == null) {
+        setState(() => _error = true);
+      }
     }
   }
 

@@ -385,15 +385,19 @@ class _LibraryTracksState extends State<LibraryTracks> {
   //Load all tracks
   Future _loadFull() async {
     if (tracks.isEmpty || tracks.length < (trackCount ?? 0)) {
-      late Playlist p;
+      Playlist? p;
       try {
         p = await deezerAPI.fullPlaylist(deezerAPI.favoritesPlaylistId ?? '');
       } catch (e, st) {
         Logger.root.severe('Error loading full favorites playlist', e, st);
+        Fluttertoast.showToast(
+            msg: 'Error loading tracks!'.i18n,
+            gravity: ToastGravity.BOTTOM,
+            toastLength: Toast.LENGTH_SHORT);
       }
-      if (mounted) {
+      if (p != null && mounted) {
         setState(() {
-          tracks = p.tracks!;
+          tracks = p!.tracks ?? [];
           trackCount = p.trackCount;
           _sort = _sort;
         });
@@ -763,6 +767,10 @@ class _AlbumListState extends State<AlbumList> {
       _albums = await widget.loadAlbums();
     } catch (e) {
       Logger.root.severe('Error loading albums: $e', StackTrace.current);
+      Fluttertoast.showToast(
+          msg: 'Error loading albums!'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1082,6 +1090,10 @@ class _LibraryPlaylistsState extends State<LibraryPlaylists> {
         if (mounted) setState(() => _playlists = playlists);
       } catch (e) {
         Logger.root.severe('Error loading playlists: $e');
+        Fluttertoast.showToast(
+            msg: 'Error loading playlists!'.i18n,
+            gravity: ToastGravity.BOTTOM,
+            toastLength: Toast.LENGTH_SHORT);
       }
     }
   }

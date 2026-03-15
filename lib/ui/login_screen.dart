@@ -45,6 +45,8 @@ class _LoginWidgetState extends State<LoginWidget> {
         if (widget.callback != null) widget.callback!();
       }).catchError((e, st) {
         Logger.root.severe('Error during login initialization', e, st);
+        _error = e.toString();
+        if (mounted) errorDialog();
       });
     }
   }
