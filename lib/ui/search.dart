@@ -1,10 +1,10 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttericon/typicons_icons.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
 
 import '../api/cache.dart';
 import '../api/deezer.dart';
@@ -78,10 +78,8 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() => _loading = true);
       try {
         await openScreenByURL(_query!);
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error opening URL: $_query', e, st);
       }
       setState(() => _loading = false);
       return;
@@ -100,10 +98,14 @@ class _SearchScreenState extends State<SearchScreen> {
     //Check for connectivity and enable offline mode
     Connectivity().checkConnectivity().then((res) {
       if (res.isEmpty || res.contains(ConnectivityResult.none)) {
-        setState(() {
-          _offline = true;
-        });
+        if (mounted) {
+          setState(() {
+            _offline = true;
+          });
+        }
       }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking connectivity', e, st);
     });
 
     super.initState();
@@ -121,10 +123,8 @@ class _SearchScreenState extends State<SearchScreen> {
     late List sugg;
     try {
       sugg = await deezerAPI.searchSuggestions(_query!);
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.warning('Error loading search suggestions', e, st);
     }
 
     if (!_cancel) setState(() => _suggestions = sugg);

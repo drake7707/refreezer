@@ -453,7 +453,10 @@ class AudioPlayerHandler extends BaseAudioHandler
     }
 
     _loadEmptyPlaylist()
-        .then((_) => Logger.root.info('audio player initialized!'));
+        .then((_) => Logger.root.info('audio player initialized!'))
+        .catchError((e, st) {
+      Logger.root.severe('Error loading empty playlist during init', e, st);
+    });
   }
 
   /// Broadcasts the current state to all clients.

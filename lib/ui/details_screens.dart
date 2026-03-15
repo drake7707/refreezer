@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
 
 import '../api/cache.dart';
 import '../api/deezer.dart';
@@ -272,9 +273,13 @@ class _MakeAlbumOfflineState extends State<MakeAlbumOffline> {
   void initState() {
     super.initState();
     downloadManager.checkOffline(album: widget.album).then((v) {
-      setState(() {
-        _offline = v;
-      });
+      if (mounted) {
+        setState(() {
+          _offline = v;
+        });
+      }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking offline status for album', e, st);
     });
   }
 
@@ -859,13 +864,14 @@ class _PlaylistDetailsState extends State<PlaylistDetails> {
       //Get correct metadata
       setState(() => _loading = true);
       deezerAPI.playlist(playlist.id!, nb: 25).then((Playlist p) {
-        setState(() {
-          playlist = p;
-          _loading = false;
-        });
-        //Load tracks
-        //_load();
-      }).catchError((e) {
+        if (mounted) {
+          setState(() {
+            playlist = p;
+            _loading = false;
+          });
+        }
+      }).catchError((e, st) {
+        Logger.root.severe('Error loading playlist', e, st);
         if (mounted) setState(() => _error = true);
       });
     }
@@ -1117,9 +1123,13 @@ class _MakePlaylistOfflineState extends State<MakePlaylistOffline> {
   void initState() {
     super.initState();
     downloadManager.checkOffline(playlist: widget.playlist).then((v) {
-      setState(() {
-        _offline = v;
-      });
+      if (mounted) {
+        setState(() {
+          _offline = v;
+        });
+      }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking offline status for playlist', e, st);
     });
   }
 

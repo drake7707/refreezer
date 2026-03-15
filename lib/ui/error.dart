@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import '../translations.i18n.dart';
 
 int counter = 0;
@@ -19,10 +20,14 @@ class _ErrorScreenState extends State<ErrorScreen> {
   void initState() {
     Connectivity().checkConnectivity().then((connectivity) {
       if (connectivity.isNotEmpty && !connectivity.contains(ConnectivityResult.none) && counter > 3) {
-        setState(() {
-          checkArl = true;
-        });
+        if (mounted) {
+          setState(() {
+            checkArl = true;
+          });
+        }
       }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking connectivity', e, st);
     });
 
     counter += 1;

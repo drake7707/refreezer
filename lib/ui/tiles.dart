@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttericon/octicons_icons.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
 
 import '../api/deezer.dart';
 import '../api/definitions.dart';
@@ -49,6 +50,8 @@ class _TrackTileState extends State<TrackTile> {
       if (mounted) {
         setState(() => _isOffline = b);
       }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking offline status for track', e, st);
     });
 
     super.initState();

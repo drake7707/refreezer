@@ -1,6 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:draggable_scrollbar/draggable_scrollbar.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -336,10 +335,8 @@ class _LibraryTracksState extends State<LibraryTracks> {
         try {
           favPlaylist =
               await deezerAPI.playlist(deezerAPI.favoritesPlaylistId ?? '');
-        } catch (e) {
-          if (kDebugMode) {
-            print(e);
-          }
+        } catch (e, st) {
+          Logger.root.severe('Error loading favorites playlist', e, st);
         }
         //Error loading
         if (favPlaylist == null) {
@@ -366,10 +363,8 @@ class _LibraryTracksState extends State<LibraryTracks> {
       try {
         t = await deezerAPI.playlistTracksPage(
             deezerAPI.favoritesPlaylistId ?? '', pos);
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading playlist tracks page', e, st);
       }
       //On error load offline
       if (t == null) {
@@ -393,10 +388,8 @@ class _LibraryTracksState extends State<LibraryTracks> {
       late Playlist p;
       try {
         p = await deezerAPI.fullPlaylist(deezerAPI.favoritesPlaylistId ?? '');
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading full favorites playlist', e, st);
       }
       if (mounted) {
         setState(() {
@@ -915,10 +908,8 @@ class _LibraryArtistsState extends State<LibraryArtists> {
     List<Artist>? data;
     try {
       data = await deezerAPI.getArtists();
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading artists', e, st);
     }
     //Update UI
     if (mounted) {

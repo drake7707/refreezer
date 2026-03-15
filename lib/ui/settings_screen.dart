@@ -1282,9 +1282,9 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                 showDialog(
                     context: context,
                     builder: (context) {
-                      deezerAPI.authorize().then((v) async {
+                      deezerAPI.authorize().then((v) {
                         if (v) {
-                          setState(() => settings.offlineMode = false);
+                          if (mounted) setState(() => settings.offlineMode = false);
                         } else {
                           Fluttertoast.showToast(
                               msg:
@@ -1293,6 +1293,9 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                               gravity: ToastGravity.BOTTOM,
                               toastLength: Toast.LENGTH_SHORT);
                         }
+                        if (context.mounted) Navigator.of(context).pop();
+                      }).catchError((e, st) {
+                        Logger.root.severe('Error during authorization', e, st);
                         if (context.mounted) Navigator.of(context).pop();
                       });
                       return AlertDialog(
@@ -1355,7 +1358,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                   context: context,
                   builder: (context) => const LastFMLogin(),
                 ).then((_) {
-                  setState(() {});
+                  if (mounted) setState(() {});
                 });
               }
             },
@@ -1747,9 +1750,13 @@ class _CreditsScreenState extends State<CreditsScreen> {
   @override
   void initState() {
     PackageInfo.fromPlatform().then((info) {
-      setState(() {
-        _version = 'v${info.version}';
-      });
+      if (mounted) {
+        setState(() {
+          _version = 'v${info.version}';
+        });
+      }
+    }).catchError((e, st) {
+      Logger.root.warning('Error loading package info', e, st);
     });
     super.initState();
   }

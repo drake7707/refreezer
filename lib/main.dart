@@ -150,8 +150,10 @@ class _LoginMainWrapperState extends State<LoginMainWrapper> {
     //Load token on background
     deezerAPI.arl = settings.arl;
     settings.offlineMode = true;
-    deezerAPI.authorize().then((b) async {
-      if (b) setState(() => settings.offlineMode = false);
+    deezerAPI.authorize().then((b) {
+      if (b && mounted) setState(() => settings.offlineMode = false);
+    }).catchError((e, st) {
+      Logger.root.severe('Error during authorization in initState', e, st);
     });
     //Global logOut function
     logOut = _logOut;
@@ -223,9 +225,11 @@ class _MainScreenState extends State<MainScreen>
     if ((settings.displayMode ?? -1) >= 0) {
       FlutterDisplayMode.supported.then((modes) async {
         if (modes.length - 1 >= settings.displayMode!.toInt()) {
-          FlutterDisplayMode.setPreferredMode(
+          await FlutterDisplayMode.setPreferredMode(
               modes[settings.displayMode!.toInt()]);
         }
+      }).catchError((e, st) {
+        Logger.root.warning('Error setting display mode', e, st);
       });
     }
 
@@ -262,12 +266,20 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _initDownloadManager() async {
-    await downloadManager.init();
+    try {
+      await downloadManager.init();
+    } catch (e, st) {
+      Logger.root.severe('Error initializing download manager', e, st);
+    }
   }
 
   void _startStreamingServer() async {
-    await DownloadManager.platform
-        .invokeMethod('startServer', {'arl': settings.arl});
+    try {
+      await DownloadManager.platform
+          .invokeMethod('startServer', {'arl': settings.arl});
+    } catch (e, st) {
+      Logger.root.severe('Error starting streaming server', e, st);
+    }
   }
 
   Future<void> _setupServiceLocator() async {
@@ -293,28 +305,36 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _startPreload(String type) async {
-    await deezerAPI.authorize();
-    if (type == 'flow') {
-      await GetIt.I<AudioPlayerHandler>()
-          .playFromSmartTrackList(SmartTrackList(id: 'flow'));
-      return;
-    }
-    if (type == 'favorites') {
-      Playlist p = await deezerAPI
-          .fullPlaylist(deezerAPI.favoritesPlaylistId.toString());
-      GetIt.I<AudioPlayerHandler>().playFromPlaylist(p, p.tracks?[0].id ?? '');
+    try {
+      await deezerAPI.authorize();
+      if (type == 'flow') {
+        await GetIt.I<AudioPlayerHandler>()
+            .playFromSmartTrackList(SmartTrackList(id: 'flow'));
+        return;
+      }
+      if (type == 'favorites') {
+        Playlist p = await deezerAPI
+            .fullPlaylist(deezerAPI.favoritesPlaylistId.toString());
+        GetIt.I<AudioPlayerHandler>().playFromPlaylist(p, p.tracks?[0].id ?? '');
+      }
+    } catch (e, st) {
+      Logger.root.severe('Error starting preload for type "$type"', e, st);
     }
   }
 
   void _loadPreloadInfo() async {
-    String info =
-        await DownloadManager.platform.invokeMethod('getPreloadInfo') ?? '';
-    if (info.isEmpty) return;
-    _startPreload(info);
+    try {
+      String info =
+          await DownloadManager.platform.invokeMethod('getPreloadInfo') ?? '';
+      if (info.isEmpty) return;
+      _startPreload(info);
+    } catch (e, st) {
+      Logger.root.severe('Error loading preload info', e, st);
+    }
   }
 
   Future<void> _loadSavedQueue() async {
-    GetIt.I<AudioPlayerHandler>().loadQueueFromFile();
+    await GetIt.I<AudioPlayerHandler>().loadQueueFromFile();
   }
 
   @override
@@ -341,10 +361,14 @@ class _MainScreenState extends State<MainScreen>
     AppLinks deepLinks = AppLinks();
 
     // Check initial link if app was in cold state (terminated)
-    final deepLink = await deepLinks.getInitialLinkString();
-    if (deepLink != null && deepLink.length > 4) {
-      Logger.root.info('Opening app from deeplink: $deepLink');
-      openScreenByURL(deepLink);
+    try {
+      final deepLink = await deepLinks.getInitialLinkString();
+      if (deepLink != null && deepLink.length > 4) {
+        Logger.root.info('Opening app from deeplink: $deepLink');
+        openScreenByURL(deepLink);
+      }
+    } catch (e, st) {
+      Logger.root.severe('Error handling initial deep link', e, st);
     }
 
     //Listen to URLs when app is in warm state (front or background)

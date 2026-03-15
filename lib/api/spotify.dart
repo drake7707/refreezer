@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart';
 import 'package:http/http.dart' as http;
@@ -149,9 +148,6 @@ class SpotifyAPIWrapper {
 
   //Try authorize with saved credentials
   Future<bool> trySaved() async {
-    if (kDebugMode) {
-      print(settings.spotifyCredentials);
-    }
     if (settings.spotifyClientSecret == null) return false;
     final credentials = SpotifyApiCredentials(
         settings.spotifyClientId, settings.spotifyClientSecret,

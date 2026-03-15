@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
@@ -118,28 +118,24 @@ class _HomePageScreenState extends State<HomePageScreen> {
     //Fetch channel from api
     try {
       hp = await deezerAPI.getChannel(widget.channel?.target ?? '');
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading channel', e, st);
     }
     if (hp == null) {
       //On error
-      setState(() => _error = true);
+      if (mounted) setState(() => _error = true);
       return;
     }
-    setState(() => _homePage = hp);
+    if (mounted) setState(() => _homePage = hp);
   }
 
   void _loadHomePage() async {
     //Load local
     try {
       HomePage hp = await HomePage().load();
-      setState(() => _homePage = hp);
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+      if (mounted) setState(() => _homePage = hp);
+    } catch (e, st) {
+      Logger.root.warning('Error loading cached home page', e, st);
     }
     //On background load from API
     try {
@@ -147,13 +143,11 @@ class _HomePageScreenState extends State<HomePageScreen> {
       HomePage hp = await deezerAPI.homePage();
       if (_cancel) return;
       if (hp.sections.isEmpty) return;
-      setState(() => _homePage = hp);
+      if (mounted) setState(() => _homePage = hp);
       //Save to cache
       await _homePage?.save();
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading home page from API', e, st);
     }
   }
 

@@ -1,6 +1,6 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
 import '../api/deezer.dart';
 import '../api/definitions.dart';
 import '../service/audio_service.dart';
@@ -12,9 +12,7 @@ class AndroidAuto {
 
   // Get media items for parent id
   Future<List<MediaItem>> getScreen(String parentId) async {
-    if (kDebugMode) {
-      print(parentId);
-    }
+    Logger.root.fine('AndroidAuto getScreen: $parentId');
 
     // Homescreen
     if (parentId == 'root') return homeScreen();
@@ -168,9 +166,7 @@ class AndroidAuto {
 
   // Load virtual mediaItem
   Future<void> playItem(String id) async {
-    if (kDebugMode) {
-      print(id);
-    }
+    Logger.root.fine('AndroidAuto playItem: $id');
 
     // Play flow
     if (id == '${prefix}flow' || id == '${prefix}stlflow') {
@@ -184,10 +180,8 @@ class AndroidAuto {
       Playlist? favPlaylist;
       try {
         favPlaylist = await deezerAPI.fullPlaylist(deezerAPI.favoritesPlaylistId ?? '');
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading favorites playlist in AndroidAuto', e, st);
       }
       if ((favPlaylist?.tracks?.length ?? 0) == 0) return;
 

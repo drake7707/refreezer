@@ -89,6 +89,8 @@ class DownloadManager {
 
       //Forward
       serviceEvents.add(e);
+    }, onError: (e, st) {
+      Logger.root.severe('Error in download service event stream', e, st);
     });
 
     await platform.invokeMethod('loadDownloads');
