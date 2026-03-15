@@ -148,7 +148,7 @@ class AudioPlayerHandler extends BaseAudioHandler
         shuffleModeEnabled: shuffleModeEnabled,
       );
       return (queueIndex < queue.length) ? queue[queueIndex] : null;
-    }).whereType<MediaItem>().distinct().listen((item) {
+    }).whereType<MediaItem>().distinct().listen((item) async {
       // Change track
       mediaItem.add(item);
 
@@ -157,7 +157,8 @@ class AudioPlayerHandler extends BaseAudioHandler
 
       if (queueLength - queueIndex == 1) {
         Logger.root.info('loaded last track of queue, adding more tracks');
-        _onQueueEnd();
+        // Await so that new tracks are appended before the queue is persisted.
+        await _onQueueEnd();
       }
 
       //Save queue
@@ -666,7 +667,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     tracks.removeWhere((track) => queueIds.contains(track.id));
     List<MediaItem> extraTracks =
         tracks.map<MediaItem>((t) => t.toMediaItem()).toList();
-    addQueueItems(extraTracks);
+    await addQueueItems(extraTracks);
   }
 
   void _playbackError(err) {
@@ -891,7 +892,7 @@ class AudioPlayerHandler extends BaseAudioHandler
   Future playMix(String trackId, String trackTitle) async {
     try {
       List<Track> tracks = await deezerAPI.playMix(trackId);
-      playFromTrackList(
+      await playFromTrackList(
           tracks,
           tracks[0].id ?? '',
           QueueSource(
