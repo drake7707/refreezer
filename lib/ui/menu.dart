@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -20,6 +21,8 @@ import '../ui/details_screens.dart';
 import '../ui/error.dart';
 
 class MenuSheet {
+  static final Logger _logger = Logger('MenuSheet');
+
   Function navigateCallback;
 
   // Use no-op callback if not provided
@@ -168,18 +171,25 @@ class MenuSheet {
       title: Text('Add track to favorites'.i18n),
       leading: const Icon(Icons.favorite),
       onTap: () async {
-        await deezerAPI.addFavoriteTrack(t.id!);
-        //Make track offline, if favorites are offline
-        Playlist p = Playlist(id: deezerAPI.favoritesPlaylistId);
-        if (await downloadManager.checkOffline(playlist: p)) {
-          downloadManager.addOfflinePlaylist(p);
+        try {
+          await deezerAPI.addFavoriteTrack(t.id!);
+          //Make track offline, if favorites are offline
+          Playlist p = Playlist(id: deezerAPI.favoritesPlaylistId);
+          if (await downloadManager.checkOffline(playlist: p)) {
+            downloadManager.addOfflinePlaylist(p);
+          }
+          //Add to cache
+          cache.libraryTracks ??= [];
+          cache.libraryTracks?.add(t.id!);
+          Fluttertoast.showToast(
+              msg: 'Added to library'.i18n, gravity: ToastGravity.BOTTOM, toastLength: Toast.LENGTH_SHORT);
+        } catch (e, st) {
+          _logger.severe('Error adding track to favorites', e, st);
+          Fluttertoast.showToast(
+              msg: 'Error adding to library, please check your connection.'.i18n,
+              gravity: ToastGravity.BOTTOM,
+              toastLength: Toast.LENGTH_SHORT);
         }
-        Fluttertoast.showToast(
-            msg: 'Added to library'.i18n, gravity: ToastGravity.BOTTOM, toastLength: Toast.LENGTH_SHORT);
-        //Add to cache
-        cache.libraryTracks ??= [];
-        cache.libraryTracks?.add(t.id!);
-
         if (context.mounted) _close(context);
       });
 
@@ -205,16 +215,25 @@ class MenuSheet {
                 return SelectPlaylistDialog(
                     track: t,
                     callback: (Playlist p) async {
-                      await deezerAPI.addToPlaylist(t.id!, p.id!);
-                      //Update the playlist if offline
-                      if (await downloadManager.checkOffline(playlist: p)) {
-                        downloadManager.addOfflinePlaylist(p);
+                      try {
+                        await deezerAPI.addToPlaylist(t.id!, p.id!);
+                        //Update the playlist if offline
+                        if (await downloadManager.checkOffline(playlist: p)) {
+                          downloadManager.addOfflinePlaylist(p);
+                        }
+                        Fluttertoast.showToast(
+                          msg: 'Track added to'.i18n + ' ${p.title}',
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                        );
+                      } catch (e, st) {
+                        _logger.severe('Error adding track to playlist', e, st);
+                        Fluttertoast.showToast(
+                          msg: 'Error adding to playlist, please check your connection.'.i18n,
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                        );
                       }
-                      Fluttertoast.showToast(
-                        msg: 'Track added to'.i18n + ' ${p.title}',
-                        toastLength: Toast.LENGTH_SHORT,
-                        gravity: ToastGravity.BOTTOM,
-                      );
                     });
               });
           if (context.mounted) _close(context);
@@ -225,12 +244,21 @@ class MenuSheet {
         title: Text('Remove from playlist'.i18n),
         leading: const Icon(Icons.delete),
         onTap: () async {
-          await deezerAPI.removeFromPlaylist(t.id!, p.id!);
-          Fluttertoast.showToast(
-            msg: 'Track removed from'.i18n + ' ${p.title}',
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-          );
+          try {
+            await deezerAPI.removeFromPlaylist(t.id!, p.id!);
+            Fluttertoast.showToast(
+              msg: 'Track removed from'.i18n + ' ${p.title}',
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+            );
+          } catch (e, st) {
+            _logger.severe('Error removing track from playlist', e, st);
+            Fluttertoast.showToast(
+              msg: 'Error removing from playlist, please check your connection.'.i18n,
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+            );
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -239,17 +267,25 @@ class MenuSheet {
         title: Text('Remove favorite'.i18n),
         leading: const Icon(Icons.delete),
         onTap: () async {
-          await deezerAPI.removeFavorite(t.id!);
-          //Check if favorites playlist is offline, update it
-          Playlist p = Playlist(id: deezerAPI.favoritesPlaylistId);
-          if (await downloadManager.checkOffline(playlist: p)) {
-            await downloadManager.addOfflinePlaylist(p);
+          try {
+            await deezerAPI.removeFavorite(t.id!);
+            //Check if favorites playlist is offline, update it
+            Playlist p = Playlist(id: deezerAPI.favoritesPlaylistId);
+            if (await downloadManager.checkOffline(playlist: p)) {
+              await downloadManager.addOfflinePlaylist(p);
+            }
+            //Remove from cache
+            cache.libraryTracks?.removeWhere((i) => i == t.id);
+            Fluttertoast.showToast(
+                msg: 'Track removed from library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
+            if (onUpdate != null) onUpdate();
+          } catch (e, st) {
+            _logger.severe('Error removing track from favorites', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error removing from library, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
           }
-          //Remove from cache
-          cache.libraryTracks?.removeWhere((i) => i == t.id);
-          Fluttertoast.showToast(
-              msg: 'Track removed from library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
-          if (onUpdate != null) onUpdate();
           if (context.mounted) _close(context);
         },
       );
@@ -353,10 +389,19 @@ class MenuSheet {
         title: Text('Make offline'.i18n),
         leading: const Icon(Icons.offline_pin),
         onTap: () async {
-          await deezerAPI.addFavoriteAlbum(a.id!);
-          await downloadManager.addOfflineAlbum(a, private: true);
-          if (context.mounted) _close(context);
-          showDownloadStartedToast();
+          try {
+            await deezerAPI.addFavoriteAlbum(a.id!);
+            await downloadManager.addOfflineAlbum(a, private: true);
+            if (context.mounted) _close(context);
+            showDownloadStartedToast();
+          } catch (e, st) {
+            _logger.severe('Error making album offline', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error making album offline, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+            if (context.mounted) _close(context);
+          }
         },
       );
 
@@ -364,8 +409,16 @@ class MenuSheet {
         title: Text('Add to library'.i18n),
         leading: const Icon(Icons.library_music),
         onTap: () async {
-          await deezerAPI.addFavoriteAlbum(a.id!);
-          Fluttertoast.showToast(msg: 'Added to library'.i18n, gravity: ToastGravity.BOTTOM);
+          try {
+            await deezerAPI.addFavoriteAlbum(a.id!);
+            Fluttertoast.showToast(msg: 'Added to library'.i18n, gravity: ToastGravity.BOTTOM);
+          } catch (e, st) {
+            _logger.severe('Error adding album to library', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error adding to library, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -375,14 +428,22 @@ class MenuSheet {
         title: Text('Remove album'.i18n),
         leading: const Icon(Icons.delete),
         onTap: () async {
-          await deezerAPI.removeAlbum(a.id!);
-          await downloadManager.removeOfflineAlbum(a.id!);
-          Fluttertoast.showToast(
-            msg: 'Album removed'.i18n,
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-          );
-          onRemove();
+          try {
+            await deezerAPI.removeAlbum(a.id!);
+            await downloadManager.removeOfflineAlbum(a.id!);
+            Fluttertoast.showToast(
+              msg: 'Album removed'.i18n,
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+            );
+            onRemove();
+          } catch (e, st) {
+            _logger.severe('Error removing album', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error removing album, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -408,10 +469,18 @@ class MenuSheet {
         title: Text('Remove from favorites'.i18n),
         leading: const Icon(Icons.delete),
         onTap: () async {
-          await deezerAPI.removeArtist(a.id!);
-          Fluttertoast.showToast(
-              msg: 'Artist removed from library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
-          if (onRemove != null) onRemove();
+          try {
+            await deezerAPI.removeArtist(a.id!);
+            Fluttertoast.showToast(
+                msg: 'Artist removed from library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
+            if (onRemove != null) onRemove();
+          } catch (e, st) {
+            _logger.severe('Error removing artist from library', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error removing artist, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -420,9 +489,17 @@ class MenuSheet {
         title: Text('Add to favorites'.i18n),
         leading: const Icon(Icons.favorite),
         onTap: () async {
-          await deezerAPI.addFavoriteArtist(a.id!);
-          Fluttertoast.showToast(
-              msg: 'Added to library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
+          try {
+            await deezerAPI.addFavoriteArtist(a.id!);
+            Fluttertoast.showToast(
+                msg: 'Added to library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
+          } catch (e, st) {
+            _logger.severe('Error adding artist to favorites', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error adding to library, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -453,15 +530,23 @@ class MenuSheet {
         title: Text('Remove from library'.i18n),
         leading: const Icon(Icons.delete),
         onTap: () async {
-          if (p.user?.id?.trim() == deezerAPI.userId) {
-            //Delete playlist if own
-            await deezerAPI.deletePlaylist(p.id!);
-          } else {
-            //Just remove from library
-            await deezerAPI.removePlaylist(p.id!);
+          try {
+            if (p.user?.id?.trim() == deezerAPI.userId) {
+              //Delete playlist if own
+              await deezerAPI.deletePlaylist(p.id!);
+            } else {
+              //Just remove from library
+              await deezerAPI.removePlaylist(p.id!);
+            }
+            downloadManager.removeOfflinePlaylist(p.id!);
+            if (onRemove != null) onRemove();
+          } catch (e, st) {
+            _logger.severe('Error removing playlist from library', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error removing playlist, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
           }
-          downloadManager.removeOfflinePlaylist(p.id!);
-          if (onRemove != null) onRemove();
           if (context.mounted) _close(context);
         },
       );
@@ -470,8 +555,16 @@ class MenuSheet {
         title: Text('Add playlist to library'.i18n),
         leading: const Icon(Icons.favorite),
         onTap: () async {
-          await deezerAPI.addPlaylist(p.id!);
-          Fluttertoast.showToast(msg: 'Added playlist to library'.i18n, gravity: ToastGravity.BOTTOM);
+          try {
+            await deezerAPI.addPlaylist(p.id!);
+            Fluttertoast.showToast(msg: 'Added playlist to library'.i18n, gravity: ToastGravity.BOTTOM);
+          } catch (e, st) {
+            _logger.severe('Error adding playlist to library', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error adding playlist to library, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -480,11 +573,20 @@ class MenuSheet {
         title: Text('Make playlist offline'.i18n),
         leading: const Icon(Icons.offline_pin),
         onTap: () async {
-          //Add to library
-          await deezerAPI.addPlaylist(p.id!);
-          downloadManager.addOfflinePlaylist(p, private: true);
-          if (context.mounted) _close(context);
-          showDownloadStartedToast();
+          try {
+            //Add to library
+            await deezerAPI.addPlaylist(p.id!);
+            await downloadManager.addOfflinePlaylist(p, private: true);
+            if (context.mounted) _close(context);
+            showDownloadStartedToast();
+          } catch (e, st) {
+            _logger.severe('Error making playlist offline', e, st);
+            Fluttertoast.showToast(
+                msg: 'Error making playlist offline, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+            if (context.mounted) _close(context);
+          }
         },
       );
 
