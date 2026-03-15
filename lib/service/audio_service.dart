@@ -80,6 +80,10 @@ class AudioPlayerHandler extends BaseAudioHandler
   int _requestedIndex = -1;
   // Timer used to distinguish real network errors from abort-on-track-skip.
   Timer? _abortErrorTimer;
+  // Set to true before intentional stop/queue-clear operations so that the
+  // processingStateStream idle listener does not treat the resulting idle state
+  // as a playback error.
+  bool _intentionalStop = false;
 
   Future<void> _init() async {
     await _startSession();
@@ -183,6 +187,16 @@ class AudioPlayerHandler extends BaseAudioHandler
       if (state == ProcessingState.completed && _player.playing) {
         stop();
         _player.seek(Duration.zero, index: 0);
+      } else if (state == ProcessingState.idle) {
+        // Detect unexpected idle (e.g. all tracks failed with 404 after auth
+        // expiry, or ExoPlayer skipped all items in ConcatenatingAudioSource).
+        // _intentionalStop is set before any intentional stop/clear so we
+        // don't show an error toast for normal stop/queue-change operations.
+        final wasIntentional = _intentionalStop;
+        _intentionalStop = false;
+        if (!wasIntentional && _playlist.children.isNotEmpty) {
+          _onError('Playback error, please try again.', null);
+        }
       }
     });
 
@@ -272,6 +286,7 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> stop() async {
+    _intentionalStop = true;
     // Save queue before stopping player to save player details
     Logger.root.info('saving queue');
     await _saveQueueToFile();
@@ -591,8 +606,12 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Set requested index
     _requestedIndex = index;
 
+    // Mark as intentional queue change so the idle state from clearing the
+    // playlist is not treated as a playback error.
+    _intentionalStop = true;
     //Clear old playlist from just_audio
     await _playlist.clear();
+    _intentionalStop = false;
 
     // Convert new queue to AudioSources playlist & add to just_audio (Concurrent approach)
     await _playlist.addAll(await _itemsToSources(newQueue));
@@ -612,13 +631,17 @@ class AudioPlayerHandler extends BaseAudioHandler
   //Replace queue, play specified item index
   Future _loadQueueAndPlayAtIndex(
       QueueSource newQueueSource, List<MediaItem> newQueue, int index) async {
-    // Pauze platback if playing (Player seems to crash on some devices otherwise)
+    // Mark as intentional queue change so the idle state from clearing the
+    // playlist is not treated as a playback error.
+    _intentionalStop = true;
+    // Pause playback if playing (Player seems to crash on some devices otherwise)
     await pause();
     //Set requested index
     _requestedIndex = index;
 
     queueSource = newQueueSource;
     await updateQueue(newQueue);
+    _intentionalStop = false;
     await setShuffleMode(AudioServiceShuffleMode.none);
     await skipToQueueItem(index);
 
