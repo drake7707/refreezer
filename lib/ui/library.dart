@@ -1088,8 +1088,10 @@ class _LibraryPlaylistsState extends State<LibraryPlaylists> {
       try {
         List<Playlist> playlists = await deezerAPI.getPlaylists();
         if (mounted) setState(() => _playlists = playlists);
-      } catch (e) {
-        Logger.root.severe('Error loading playlists: $e');
+      } catch (e, st) {
+        Logger.root.severe('Error loading playlists: $e', st);
+        // Set to empty list so the loading spinner disappears.
+        if (mounted) setState(() => _playlists = []);
         Fluttertoast.showToast(
             msg: 'Error loading playlists!'.i18n,
             gravity: ToastGravity.BOTTOM,

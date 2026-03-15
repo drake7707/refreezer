@@ -78,6 +78,8 @@ class AudioPlayerHandler extends BaseAudioHandler
   QueueState get queueState => _queueStateSubject.value;
   int currentIndex = 0;
   int _requestedIndex = -1;
+  // Timer used to distinguish real network errors from abort-on-track-skip.
+  Timer? _abortErrorTimer;
 
   Future<void> _init() async {
     await _startSession();
@@ -671,17 +673,33 @@ class AudioPlayerHandler extends BaseAudioHandler
   }
 
   void _playbackError(err) {
-    Logger.root.severe('Playback Error from audioservice: ${err.code}', err);
+    Logger.root.severe('Playback Error from audioservice', err);
     if (err is PlatformException &&
         err.code == 'abort' &&
         err.message == 'Connection aborted') {
+      // "Connection aborted" also fires during normal track skips (old source
+      // closed). Defer the error toast: if the player recovers to a new track
+      // within 500 ms the abort was benign; if it stays idle it was a real
+      // network failure and we surface it to the user.
+      _abortErrorTimer?.cancel();
+      _abortErrorTimer = Timer(const Duration(milliseconds: 500), () {
+        _abortErrorTimer = null;
+        if (_player.processingState == ProcessingState.idle) {
+          _onError(err, null);
+        }
+      });
       return;
     }
     _onError(err, null);
   }
 
   void _onError(err, stacktrace, {bool stopService = false}) {
-    Logger.root.severe('Error from audioservice: ${err.code}', err);
+    Logger.root.severe('Error from audioservice', err);
+    // Reset playing state so the UI shows the play button rather than pause
+    // and the seek bar stops appearing stuck.
+    if (_player.playing) {
+      _player.pause();
+    }
     Fluttertoast.showToast(
         msg: 'Playback error, please try again.'.i18n,
         gravity: ToastGravity.BOTTOM,
