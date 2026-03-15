@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ui';
 
 import 'package:async/async.dart';
+import 'package:logging/logging.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -668,6 +669,7 @@ class PlaybackControls extends StatefulWidget {
 }
 
 class _PlaybackControlsState extends State<PlaybackControls> {
+  final Logger _logger = Logger('_PlaybackControlsState');
   AudioPlayerHandler audioHandler = GetIt.I<AudioPlayerHandler>();
   Icon get libraryIcon {
     if (cache.checkTrackFavorite(
@@ -700,9 +702,17 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                 semanticLabel: 'Dislike'.i18n,
               ),
               onPressed: () async {
-                await deezerAPI.dislikeTrack(audioHandler.mediaItem.value!.id);
-                if (audioHandler.queueState.hasNext) {
-                  audioHandler.skipToNext();
+                try {
+                  await deezerAPI.dislikeTrack(audioHandler.mediaItem.value!.id);
+                  if (audioHandler.queueState.hasNext) {
+                    audioHandler.skipToNext();
+                  }
+                } catch (e, st) {
+                  _logger.severe('Error disliking track', e, st);
+                  Fluttertoast.showToast(
+                      msg: 'Error, please check your connection.'.i18n,
+                      gravity: ToastGravity.BOTTOM,
+                      toastLength: Toast.LENGTH_SHORT);
                 }
               }),
           PrevNextButton(widget.iconSize, prev: true),
@@ -716,18 +726,34 @@ class _PlaybackControlsState extends State<PlaybackControls> {
               if (cache.checkTrackFavorite(
                   Track.fromMediaItem(audioHandler.mediaItem.value!))) {
                 //Remove from library
-                setState(() => cache.libraryTracks
-                    ?.remove(audioHandler.mediaItem.value!.id));
-                await deezerAPI
-                    .removeFavorite(audioHandler.mediaItem.value!.id);
-                await cache.save();
+                try {
+                  await deezerAPI
+                      .removeFavorite(audioHandler.mediaItem.value!.id);
+                  setState(() => cache.libraryTracks
+                      ?.remove(audioHandler.mediaItem.value!.id));
+                  await cache.save();
+                } catch (e, st) {
+                  _logger.severe('Error removing track from favorites', e, st);
+                  Fluttertoast.showToast(
+                      msg: 'Error removing from library, please check your connection.'.i18n,
+                      gravity: ToastGravity.BOTTOM,
+                      toastLength: Toast.LENGTH_SHORT);
+                }
               } else {
                 //Add
-                setState(() =>
-                    cache.libraryTracks?.add(audioHandler.mediaItem.value!.id));
-                await deezerAPI
-                    .addFavoriteTrack(audioHandler.mediaItem.value!.id);
-                await cache.save();
+                try {
+                  await deezerAPI
+                      .addFavoriteTrack(audioHandler.mediaItem.value!.id);
+                  setState(() =>
+                      cache.libraryTracks?.add(audioHandler.mediaItem.value!.id));
+                  await cache.save();
+                } catch (e, st) {
+                  _logger.severe('Error adding track to favorites', e, st);
+                  Fluttertoast.showToast(
+                      msg: 'Error adding to library, please check your connection.'.i18n,
+                      gravity: ToastGravity.BOTTOM,
+                      toastLength: Toast.LENGTH_SHORT);
+                }
               }
             },
           )

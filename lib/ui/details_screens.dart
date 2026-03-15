@@ -498,13 +498,21 @@ class _ArtistDetailsState extends State<ArtistDetails> {
                                 ],
                               ),
                               onPressed: () async {
-                                List<Track> tracks = await deezerAPI.smartRadio(artist.id ?? '');
-                                if (tracks.isNotEmpty) {
-                                  GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                                      tracks,
-                                      tracks[0].id!,
-                                      QueueSource(
-                                          id: artist.id, text: 'Radio'.i18n + ' ${artist.name}', source: 'smartradio'));
+                                try {
+                                  List<Track> tracks = await deezerAPI.smartRadio(artist.id ?? '');
+                                  if (tracks.isNotEmpty) {
+                                    GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                                        tracks,
+                                        tracks[0].id!,
+                                        QueueSource(
+                                            id: artist.id, text: 'Radio'.i18n + ' ${artist.name}', source: 'smartradio'));
+                                  }
+                                } catch (e, st) {
+                                  Logger.root.severe('Error loading artist radio', e, st);
+                                  Fluttertoast.showToast(
+                                      msg: 'Could not load tracks, please check your connection.'.i18n,
+                                      gravity: ToastGravity.BOTTOM,
+                                      toastLength: Toast.LENGTH_SHORT);
                                 }
                               },
                             )

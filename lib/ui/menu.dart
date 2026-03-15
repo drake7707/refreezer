@@ -937,20 +937,28 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
         TextButton(
           child: Text(edit ? 'Update'.i18n : 'Create'.i18n),
           onPressed: () async {
-            if (edit) {
-              //Update
-              await deezerAPI.updatePlaylist(
-                  widget.playlist!.id!, _titleController!.value.text, _descController!.value.text,
-                  status: _playlistType);
-              Fluttertoast.showToast(msg: 'Playlist updated!'.i18n, gravity: ToastGravity.BOTTOM);
-            } else {
-              List<String> tracks = [];
-              tracks = widget.tracks?.map<String>((t) => t.id!).toList() ?? [];
-              await deezerAPI.createPlaylist(_title,
-                  status: _playlistType, description: _description, trackIds: tracks);
-              Fluttertoast.showToast(msg: 'Playlist created!'.i18n, gravity: ToastGravity.BOTTOM);
+            try {
+              if (edit) {
+                //Update
+                await deezerAPI.updatePlaylist(
+                    widget.playlist!.id!, _titleController!.value.text, _descController!.value.text,
+                    status: _playlistType);
+                Fluttertoast.showToast(msg: 'Playlist updated!'.i18n, gravity: ToastGravity.BOTTOM);
+              } else {
+                List<String> tracks = [];
+                tracks = widget.tracks?.map<String>((t) => t.id!).toList() ?? [];
+                await deezerAPI.createPlaylist(_title,
+                    status: _playlistType, description: _description, trackIds: tracks);
+                Fluttertoast.showToast(msg: 'Playlist created!'.i18n, gravity: ToastGravity.BOTTOM);
+              }
+              if (context.mounted) Navigator.of(context).pop();
+            } catch (e, st) {
+              Logger.root.severe('Error saving playlist', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Error saving playlist, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
             }
-            if (context.mounted) Navigator.of(context).pop();
           },
         )
       ],

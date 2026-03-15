@@ -89,14 +89,22 @@ class LibraryScreen extends StatelessWidget {
             title: Text('Shuffle'.i18n),
             leading: const LeadingIcon(Icons.shuffle, color: Color(0xffeca704)),
             onTap: () async {
-              List<Track> tracks = await deezerAPI.libraryShuffle();
-              GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                  tracks,
-                  tracks[0].id!,
-                  QueueSource(
-                      id: 'libraryshuffle',
-                      source: 'libraryshuffle',
-                      text: 'Library shuffle'.i18n));
+              try {
+                List<Track> tracks = await deezerAPI.libraryShuffle();
+                GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                    tracks,
+                    tracks[0].id!,
+                    QueueSource(
+                        id: 'libraryshuffle',
+                        source: 'libraryshuffle',
+                        text: 'Library shuffle'.i18n));
+              } catch (e, st) {
+                Logger.root.severe('Error loading library shuffle', e, st);
+                Fluttertoast.showToast(
+                    msg: 'Could not load tracks, please check your connection.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT);
+              }
             },
           ),
           const FreezerDivider(),
