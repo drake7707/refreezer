@@ -25,7 +25,7 @@ class DeezerAPI {
   String? favoritesPlaylistId;
   String? sid;
 
-  Future? _authorizing;
+  Future<bool>? _authorizing;
 
   //Get headers
   Map<String, String> get headers => {
@@ -119,10 +119,10 @@ class DeezerAPI {
 
   //Wrapper so it can be globally awaited
   Future<bool> authorize() async {
-    return await (_authorizing ??= rawAuthorize().then((success) {
+    _authorizing ??= rawAuthorize().whenComplete(() {
       _authorizing = null;
-      return success;
-    }));
+    });
+    return await _authorizing!;
   }
 
   //Authorize, bool = success
@@ -139,11 +139,11 @@ class DeezerAPI {
         licenseToken = data['results']['USER']['OPTIONS']['license_token'];
         return true;
       }
-    } catch (e) {
+    } catch (e, st) {
       if (onError != null) {
         onError(e);
       }
-      Logger.root.severe('Login Error (D): ' + e.toString());
+      Logger.root.severe('Login Error (D)', e, st);
       return false;
     }
   }
