@@ -5,6 +5,7 @@ import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttericon/typicons_icons.dart';
 import 'package:get_it/get_it.dart';
 import 'package:logging/logging.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import '../api/cache.dart';
 import '../api/deezer.dart';
@@ -302,7 +303,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         await GetIt.I<AudioPlayerHandler>()
                             .playFromSmartTrackList(SmartTrackList(id: 'flow'));
                       } catch (e, st) {
-                        _logger.severe('Error loading flow', e, st);
+                        Logger.root.severe('Error loading flow', e, st);
                         Fluttertoast.showToast(
                             msg: 'Could not load tracks, please check your connection.'.i18n,
                             gravity: ToastGravity.BOTTOM,
@@ -388,7 +389,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   source: 'searchhistory',
                                   id: 'searchhistory'));
                         } catch (e, st) {
-                          _logger.severe('Error playing from search history', e, st);
+                          Logger.root.severe('Error playing from search history', e, st);
                           Fluttertoast.showToast(
                               msg: 'Playback error, please try again.'.i18n,
                               gravity: ToastGravity.BOTTOM,
@@ -598,7 +599,7 @@ class SearchResultsScreen extends StatelessWidget {
                                 id: query,
                                 source: 'search'));
                       } catch (e, st) {
-                        _logger.severe('Error playing search result', e, st);
+                        Logger.root.severe('Error playing search result', e, st);
                         Fluttertoast.showToast(
                             msg: 'Playback error, please try again.'.i18n,
                             gravity: ToastGravity.BOTTOM,
@@ -843,7 +844,7 @@ class SearchResultsScreen extends StatelessWidget {
                             e.show!, episodes,
                             index: episodes.indexWhere((ep) => e.id == ep.id));
                       } catch (e, st) {
-                        _logger.severe('Error playing show episode', e, st);
+                        Logger.root.severe('Error playing show episode', e, st);
                         Fluttertoast.showToast(
                             msg: 'Playback error, please try again.'.i18n,
                             gravity: ToastGravity.BOTTOM,
@@ -917,7 +918,7 @@ class TrackListScreen extends StatelessWidget {
                 await GetIt.I<AudioPlayerHandler>()
                     .playFromTrackList(tracks, t.id ?? '', queueSource);
               } catch (e, st) {
-                _logger.severe('Error playing track from list', e, st);
+                Logger.root.severe('Error playing track from list', e, st);
                 Fluttertoast.showToast(
                     msg: 'Playback error, please try again.'.i18n,
                     gravity: ToastGravity.BOTTOM,
@@ -1052,7 +1053,7 @@ class EpisodeListScreen extends StatelessWidget {
                       e.show!, episodes,
                       index: episodes.indexWhere((ep) => e.id == ep.id));
                 } catch (e, st) {
-                  _logger.severe('Error playing show episode', e, st);
+                  Logger.root.severe('Error playing show episode', e, st);
                   Fluttertoast.showToast(
                       msg: 'Playback error, please try again.'.i18n,
                       gravity: ToastGravity.BOTTOM,
