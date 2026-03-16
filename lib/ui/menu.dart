@@ -176,7 +176,7 @@ class MenuSheet {
           //Make track offline, if favorites are offline
           Playlist p = Playlist(id: deezerAPI.favoritesPlaylistId);
           if (await downloadManager.checkOffline(playlist: p)) {
-            downloadManager.addOfflinePlaylist(p);
+            await downloadManager.addOfflinePlaylist(p);
           }
           //Add to cache
           cache.libraryTracks ??= [];
@@ -219,7 +219,7 @@ class MenuSheet {
                         await deezerAPI.addToPlaylist(t.id!, p.id!);
                         //Update the playlist if offline
                         if (await downloadManager.checkOffline(playlist: p)) {
-                          downloadManager.addOfflinePlaylist(p);
+                          await downloadManager.addOfflinePlaylist(p);
                         }
                         Fluttertoast.showToast(
                           msg: 'Track added to'.i18n + ' ${p.title}',
@@ -325,7 +325,15 @@ class MenuSheet {
         title: Text('Play mix'.i18n),
         leading: const Icon(Icons.online_prediction),
         onTap: () async {
-          GetIt.I<AudioPlayerHandler>().playMix(track.id!, track.title!);
+          try {
+            await GetIt.I<AudioPlayerHandler>().playMix(track.id!, track.title!);
+          } catch (e, st) {
+            _logger.severe('Error playing mix', e, st);
+            Fluttertoast.showToast(
+                msg: 'Could not load mix, please check your connection.'.i18n,
+                gravity: ToastGravity.BOTTOM,
+                toastLength: Toast.LENGTH_SHORT);
+          }
           if (context.mounted) _close(context);
         },
       );
@@ -338,14 +346,22 @@ class MenuSheet {
             title: Text(isOffline ? 'Remove offline'.i18n : 'Offline'.i18n),
             leading: const Icon(Icons.offline_pin),
             onTap: () async {
-              if (isOffline) {
-                await downloadManager.removeOfflineTracks([track]);
+              try {
+                if (isOffline) {
+                  await downloadManager.removeOfflineTracks([track]);
+                  Fluttertoast.showToast(
+                      msg: 'Track removed from offline!'.i18n,
+                      gravity: ToastGravity.BOTTOM,
+                      toastLength: Toast.LENGTH_SHORT);
+                } else {
+                  await downloadManager.addOfflineTrack(track, private: true);
+                }
+              } catch (e, st) {
+                _logger.severe('Error changing track offline status', e, st);
                 Fluttertoast.showToast(
-                    msg: 'Track removed from offline!'.i18n,
+                    msg: 'Error, please check your connection.'.i18n,
                     gravity: ToastGravity.BOTTOM,
                     toastLength: Toast.LENGTH_SHORT);
-              } else {
-                await downloadManager.addOfflineTrack(track, private: true);
               }
               if (context.mounted) _close(context);
             },
@@ -538,7 +554,7 @@ class MenuSheet {
               //Just remove from library
               await deezerAPI.removePlaylist(p.id!);
             }
-            downloadManager.removeOfflinePlaylist(p.id!);
+            await downloadManager.removeOfflinePlaylist(p.id!);
             if (onRemove != null) onRemove();
           } catch (e, st) {
             _logger.severe('Error removing playlist from library', e, st);

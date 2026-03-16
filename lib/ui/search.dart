@@ -298,8 +298,16 @@ class _SearchScreenState extends State<SearchScreen> {
                     icon: const Icon(Typicons.waves),
                     onTap: () async {
                       // No channel for Flow...
-                      await GetIt.I<AudioPlayerHandler>()
-                          .playFromSmartTrackList(SmartTrackList(id: 'flow'));
+                      try {
+                        await GetIt.I<AudioPlayerHandler>()
+                            .playFromSmartTrackList(SmartTrackList(id: 'flow'));
+                      } catch (e, st) {
+                        _logger.severe('Error loading flow', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Could not load tracks, please check your connection.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                      }
                     },
                   ),
                   SearchBrowseCard(
@@ -366,18 +374,26 @@ class _SearchScreenState extends State<SearchScreen> {
                   case SearchHistoryItemType.TRACK:
                     return TrackTile(
                       data,
-                      onTap: () {
+                      onTap: () async {
                         List<Track> queue = cache.searchHistory!
                             .where((h) => h.type == SearchHistoryItemType.TRACK)
                             .map<Track>((t) => t.data)
                             .toList();
-                        GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                            queue,
-                            data.id,
-                            QueueSource(
-                                text: 'Search history'.i18n,
-                                source: 'searchhistory',
-                                id: 'searchhistory'));
+                        try {
+                          await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                              queue,
+                              data.id,
+                              QueueSource(
+                                  text: 'Search history'.i18n,
+                                  source: 'searchhistory',
+                                  id: 'searchhistory'));
+                        } catch (e, st) {
+                          _logger.severe('Error playing from search history', e, st);
+                          Fluttertoast.showToast(
+                              msg: 'Playback error, please try again.'.i18n,
+                              gravity: ToastGravity.BOTTOM,
+                              toastLength: Toast.LENGTH_SHORT);
+                        }
                       },
                       onHold: () {
                         MenuSheet m = MenuSheet();
@@ -571,15 +587,23 @@ class SearchResultsScreen extends StatelessWidget {
                   Track t = results.tracks![i];
                   return TrackTile(
                     t,
-                    onTap: () {
+                    onTap: () async {
                       cache.addToSearchHistory(t);
-                      GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                          results.tracks!,
-                          t.id ?? '',
-                          QueueSource(
-                              text: 'Search'.i18n,
-                              id: query,
-                              source: 'search'));
+                      try {
+                        await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                            results.tracks!,
+                            t.id ?? '',
+                            QueueSource(
+                                text: 'Search'.i18n,
+                                id: query,
+                                source: 'search'));
+                      } catch (e, st) {
+                        _logger.severe('Error playing search result', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                                            }
                     },
                     onHold: () {
                       MenuSheet m = MenuSheet();
@@ -812,11 +836,19 @@ class SearchResultsScreen extends StatelessWidget {
                     ),
                     onTap: () async {
                       //Load entire show, then play
-                      List<ShowEpisode> episodes =
-                          await deezerAPI.allShowEpisodes(e.show!.id ?? '');
-                      await GetIt.I<AudioPlayerHandler>().playShowEpisode(
-                          e.show!, episodes,
-                          index: episodes.indexWhere((ep) => e.id == ep.id));
+                      try {
+                        List<ShowEpisode> episodes =
+                            await deezerAPI.allShowEpisodes(e.show!.id ?? '');
+                        await GetIt.I<AudioPlayerHandler>().playShowEpisode(
+                            e.show!, episodes,
+                            index: episodes.indexWhere((ep) => e.id == ep.id));
+                      } catch (e, st) {
+                        _logger.severe('Error playing show episode', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                      }
                     },
                   );
                 }),
@@ -880,9 +912,17 @@ class TrackListScreen extends StatelessWidget {
           Track t = tracks[i];
           return TrackTile(
             t,
-            onTap: () {
-              GetIt.I<AudioPlayerHandler>()
-                  .playFromTrackList(tracks, t.id ?? '', queueSource);
+            onTap: () async {
+              try {
+                await GetIt.I<AudioPlayerHandler>()
+                    .playFromTrackList(tracks, t.id ?? '', queueSource);
+              } catch (e, st) {
+                _logger.severe('Error playing track from list', e, st);
+                Fluttertoast.showToast(
+                    msg: 'Playback error, please try again.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT);
+              }
             },
             onHold: () {
               MenuSheet m = MenuSheet();
@@ -1005,11 +1045,19 @@ class EpisodeListScreen extends StatelessWidget {
               ),
               onTap: () async {
                 //Load entire show, then play
-                List<ShowEpisode> episodes =
-                    await deezerAPI.allShowEpisodes(e.show!.id ?? '');
-                await GetIt.I<AudioPlayerHandler>().playShowEpisode(
-                    e.show!, episodes,
-                    index: episodes.indexWhere((ep) => e.id == ep.id));
+                try {
+                  List<ShowEpisode> episodes =
+                      await deezerAPI.allShowEpisodes(e.show!.id ?? '');
+                  await GetIt.I<AudioPlayerHandler>().playShowEpisode(
+                      e.show!, episodes,
+                      index: episodes.indexWhere((ep) => e.id == ep.id));
+                } catch (e, st) {
+                  _logger.severe('Error playing show episode', e, st);
+                  Fluttertoast.showToast(
+                      msg: 'Playback error, please try again.'.i18n,
+                      gravity: ToastGravity.BOTTOM,
+                      toastLength: Toast.LENGTH_SHORT);
+                }
               },
             );
           },

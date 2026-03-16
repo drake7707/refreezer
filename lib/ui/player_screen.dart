@@ -470,8 +470,14 @@ class _QualityInfoWidgetState extends State<QualityInfoWidget> {
   //Load data from native
   void _load() async {
     if (audioHandler.mediaItem.value == null) return;
-    Map? data = await DownloadManager.platform.invokeMethod(
-        'getStreamInfo', {'id': audioHandler.mediaItem.value!.id});
+    Map? data;
+    try {
+      data = await DownloadManager.platform.invokeMethod(
+          'getStreamInfo', {'id': audioHandler.mediaItem.value!.id});
+    } catch (e, st) {
+      Logger.root.severe('Error getting stream info', e, st);
+      return;
+    }
     //N/A
     if (data == null) {
       if (mounted) setState(() => value = '');
@@ -705,7 +711,7 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                 try {
                   await deezerAPI.dislikeTrack(audioHandler.mediaItem.value!.id);
                   if (audioHandler.queueState.hasNext) {
-                    audioHandler.skipToNext();
+                    await audioHandler.skipToNext();
                   }
                 } catch (e, st) {
                   _logger.severe('Error disliking track', e, st);

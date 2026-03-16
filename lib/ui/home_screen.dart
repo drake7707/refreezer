@@ -1,5 +1,6 @@
 import 'package:logging/logging.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
 
 import '../api/deezer.dart';
@@ -316,17 +317,33 @@ class HomePageItemWidget extends StatelessWidget {
       case HomePageItemType.FLOW:
         return FlowTrackListTile(
           item.value,
-          onTap: () {
+          onTap: () async {
             DeezerFlow deezerFlow = item.value;
-            GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(SmartTrackList(
-                id: 'flow', title: deezerFlow.title, flowType: deezerFlow.id));
+            try {
+              await GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(SmartTrackList(
+                  id: 'flow', title: deezerFlow.title, flowType: deezerFlow.id));
+            } catch (e, st) {
+              Logger.root.severe('Error playing flow', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Could not load tracks, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+            }
           },
         );
       case HomePageItemType.SMARTTRACKLIST:
         return SmartTrackListTile(
           item.value,
-          onTap: () {
-            GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(item.value);
+          onTap: () async {
+            try {
+              await GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(item.value);
+            } catch (e, st) {
+              Logger.root.severe('Error playing smart track list', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Could not load tracks, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+            }
           },
         );
       case HomePageItemType.ALBUM:

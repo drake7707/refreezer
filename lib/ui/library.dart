@@ -91,7 +91,7 @@ class LibraryScreen extends StatelessWidget {
             onTap: () async {
               try {
                 List<Track> tracks = await deezerAPI.libraryShuffle();
-                GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                await GetIt.I<AudioPlayerHandler>().playFromTrackList(
                     tracks,
                     tracks[0].id!,
                     QueueSource(
@@ -561,16 +561,24 @@ class _LibraryTracksState extends State<LibraryTracks> {
                       : tracks[i];
                   return TrackTile(
                     t,
-                    onTap: () {
-                      GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                          (tracks.length == (trackCount ?? 0))
-                              ? _sorted
-                              : tracks,
-                          t.id!,
-                          QueueSource(
-                              id: deezerAPI.favoritesPlaylistId,
-                              text: 'Favorites'.i18n,
-                              source: 'playlist'));
+                    onTap: () async {
+                      try {
+                        await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                            (tracks.length == (trackCount ?? 0))
+                                ? _sorted
+                                : tracks,
+                            t.id!,
+                            QueueSource(
+                                id: deezerAPI.favoritesPlaylistId,
+                                text: 'Favorites'.i18n,
+                                source: 'playlist'));
+                      } catch (e, st) {
+                        Logger.root.severe('Error playing from library', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                      }
                     },
                     onHold: () {
                       MenuSheet m = MenuSheet();
@@ -606,14 +614,22 @@ class _LibraryTracksState extends State<LibraryTracks> {
                   Track t = allTracks[i];
                   return TrackTile(
                     t,
-                    onTap: () {
-                      GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                          allTracks,
-                          t.id!,
-                          QueueSource(
-                              id: 'allTracks',
-                              text: 'All offline tracks'.i18n,
-                              source: 'offline'));
+                    onTap: () async {
+                      try {
+                        await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                            allTracks,
+                            t.id!,
+                            QueueSource(
+                                id: 'allTracks',
+                                text: 'All offline tracks'.i18n,
+                                source: 'offline'));
+                      } catch (e, st) {
+                        Logger.root.severe('Error playing offline track', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                      }
                     },
                     onHold: () {
                       MenuSheet m = MenuSheet();
@@ -1350,9 +1366,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Icons.delete_sweep,
               semanticLabel: 'Clear all'.i18n,
             ),
-            onPressed: () {
+            onPressed: () async {
               setState(() => cache.history = []);
-              cache.save();
+              await cache.save();
             },
           )
         ],
@@ -1367,12 +1383,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Track t = cache.history[cache.history.length - i - 1];
               return TrackTile(
                 t,
-                onTap: () {
-                  GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                      cache.history.reversed.toList(),
-                      t.id!,
-                      QueueSource(
-                          id: null, text: 'History'.i18n, source: 'history'));
+                onTap: () async {
+                  try {
+                    await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                        cache.history.reversed.toList(),
+                        t.id!,
+                        QueueSource(
+                            id: null, text: 'History'.i18n, source: 'history'));
+                  } catch (e, st) {
+                    Logger.root.severe('Error playing from history', e, st);
+                    Fluttertoast.showToast(
+                        msg: 'Playback error, please try again.'.i18n,
+                        gravity: ToastGravity.BOTTOM,
+                        toastLength: Toast.LENGTH_SHORT);
+                  }
                 },
                 onHold: () {
                   MenuSheet m = MenuSheet();
