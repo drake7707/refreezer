@@ -347,8 +347,8 @@ class ReFreezerLatest {
           AndroidInitializationSettings('drawable/ic_logo');
       const InitializationSettings initializationSettings =
           InitializationSettings(
-              android: androidInitializationSettings, iOS: null);
-      await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+              android: androidInitializationSettings);
+      await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
 
       AndroidNotificationDetails androidNotificationDetails =
           AndroidNotificationDetails(
@@ -360,13 +360,13 @@ class ReFreezerLatest {
       );
 
       NotificationDetails notificationDetails =
-          NotificationDetails(android: androidNotificationDetails, iOS: null);
+          NotificationDetails(android: androidNotificationDetails);
 
       await flutterLocalNotificationsPlugin.show(
-          0,
-          'New update available!'.i18n,
-          'Update to latest version in the settings.'.i18n,
-          notificationDetails);
+          id: 0,
+          title: 'New update available!'.i18n,
+          body: 'Update to latest version in the settings.'.i18n,
+          notificationDetails: notificationDetails);
     } catch (e) {
       Logger.root.severe('Error checking for updates', e);
     }
