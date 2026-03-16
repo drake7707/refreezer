@@ -78,6 +78,12 @@ class AudioPlayerHandler extends BaseAudioHandler
   QueueState get queueState => _queueStateSubject.value;
   int currentIndex = 0;
   int _requestedIndex = -1;
+  // Timer used to distinguish real network errors from abort-on-track-skip.
+  Timer? _abortErrorTimer;
+  // Set to true before intentional stop/queue-clear operations so that the
+  // processingStateStream idle listener does not treat the resulting idle state
+  // as a playback error.
+  bool _intentionalStop = false;
 
   Future<void> _init() async {
     await _startSession();
@@ -148,7 +154,7 @@ class AudioPlayerHandler extends BaseAudioHandler
         shuffleModeEnabled: shuffleModeEnabled,
       );
       return (queueIndex < queue.length) ? queue[queueIndex] : null;
-    }).whereType<MediaItem>().distinct().listen((item) {
+    }).whereType<MediaItem>().distinct().listen((item) async {
       // Change track
       mediaItem.add(item);
 
@@ -157,7 +163,8 @@ class AudioPlayerHandler extends BaseAudioHandler
 
       if (queueLength - queueIndex == 1) {
         Logger.root.info('loaded last track of queue, adding more tracks');
-        _onQueueEnd();
+        // Await so that new tracks are appended before the queue is persisted.
+        await _onQueueEnd();
       }
 
       //Save queue
@@ -180,6 +187,16 @@ class AudioPlayerHandler extends BaseAudioHandler
       if (state == ProcessingState.completed && _player.playing) {
         stop();
         _player.seek(Duration.zero, index: 0);
+      } else if (state == ProcessingState.idle) {
+        // Detect unexpected idle (e.g. all tracks failed with 404 after auth
+        // expiry, or ExoPlayer skipped all items in ConcatenatingAudioSource).
+        // _intentionalStop is set before any intentional stop/clear so we
+        // don't show an error toast for normal stop/queue-change operations.
+        final wasIntentional = _intentionalStop;
+        _intentionalStop = false;
+        if (!wasIntentional && _playlist.children.isNotEmpty) {
+          _onError('Playback error, please try again.', null);
+        }
       }
     });
 
@@ -269,6 +286,7 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> stop() async {
+    _intentionalStop = true;
     // Save queue before stopping player to save player details
     Logger.root.info('saving queue');
     await _saveQueueToFile();
@@ -453,7 +471,10 @@ class AudioPlayerHandler extends BaseAudioHandler
     }
 
     _loadEmptyPlaylist()
-        .then((_) => Logger.root.info('audio player initialized!'));
+        .then((_) => Logger.root.info('audio player initialized!'))
+        .catchError((e, st) {
+      Logger.root.severe('Error loading empty playlist during init', e, st);
+    });
   }
 
   /// Broadcasts the current state to all clients.
@@ -585,8 +606,12 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Set requested index
     _requestedIndex = index;
 
+    // Mark as intentional queue change so the idle state from clearing the
+    // playlist is not treated as a playback error.
+    _intentionalStop = true;
     //Clear old playlist from just_audio
     await _playlist.clear();
+    _intentionalStop = false;
 
     // Convert new queue to AudioSources playlist & add to just_audio (Concurrent approach)
     await _playlist.addAll(await _itemsToSources(newQueue));
@@ -606,13 +631,17 @@ class AudioPlayerHandler extends BaseAudioHandler
   //Replace queue, play specified item index
   Future _loadQueueAndPlayAtIndex(
       QueueSource newQueueSource, List<MediaItem> newQueue, int index) async {
-    // Pauze platback if playing (Player seems to crash on some devices otherwise)
+    // Mark as intentional queue change so the idle state from clearing the
+    // playlist is not treated as a playback error.
+    _intentionalStop = true;
+    // Pause playback if playing (Player seems to crash on some devices otherwise)
     await pause();
     //Set requested index
     _requestedIndex = index;
 
     queueSource = newQueueSource;
     await updateQueue(newQueue);
+    _intentionalStop = false;
     await setShuffleMode(AudioServiceShuffleMode.none);
     await skipToQueueItem(index);
 
@@ -626,31 +655,36 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (queueSource == null) return;
 
     List<Track> tracks = [];
-    switch (queueSource!.source) {
-      case 'flow':
-        tracks = await deezerAPI.flow();
-        break;
-      //SmartRadio/Artist radio
-      case 'smartradio':
-        tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
-        break;
-      //Library shuffle
-      case 'libraryshuffle':
-        tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
-        break;
-      case 'mix':
-        tracks = await deezerAPI.playMix(queueSource!.id ?? '');
-        break;
-      case 'playlist':
-        // Get current position
-        int pos = queue.value.length;
-        // Load 25 more tracks from playlist
-        tracks =
-            await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
-        break;
-      default:
-        Logger.root.info('Reached end of queue source: ${queueSource!.source}');
-        break;
+    try {
+      switch (queueSource!.source) {
+        case 'flow':
+          tracks = await deezerAPI.flow();
+          break;
+        //SmartRadio/Artist radio
+        case 'smartradio':
+          tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
+          break;
+        //Library shuffle
+        case 'libraryshuffle':
+          tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
+          break;
+        case 'mix':
+          tracks = await deezerAPI.playMix(queueSource!.id ?? '');
+          break;
+        case 'playlist':
+          // Get current position
+          int pos = queue.value.length;
+          // Load 25 more tracks from playlist
+          tracks =
+              await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
+          break;
+        default:
+          Logger.root.info('Reached end of queue source: ${queueSource!.source}');
+          break;
+      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading more tracks at queue end', e, st);
+      return;
     }
 
     // Deduplicate tracks already in queue with the same id
@@ -658,21 +692,41 @@ class AudioPlayerHandler extends BaseAudioHandler
     tracks.removeWhere((track) => queueIds.contains(track.id));
     List<MediaItem> extraTracks =
         tracks.map<MediaItem>((t) => t.toMediaItem()).toList();
-    addQueueItems(extraTracks);
+    await addQueueItems(extraTracks);
   }
 
   void _playbackError(err) {
-    Logger.root.severe('Playback Error from audioservice: ${err.code}', err);
+    Logger.root.severe('Playback Error from audioservice', err);
     if (err is PlatformException &&
         err.code == 'abort' &&
         err.message == 'Connection aborted') {
+      // "Connection aborted" also fires during normal track skips (old source
+      // closed). Defer the error toast: if the player recovers to a new track
+      // within 500 ms the abort was benign; if it stays idle it was a real
+      // network failure and we surface it to the user.
+      _abortErrorTimer?.cancel();
+      _abortErrorTimer = Timer(const Duration(milliseconds: 500), () {
+        _abortErrorTimer = null;
+        if (_player.processingState == ProcessingState.idle) {
+          _onError(err, null);
+        }
+      });
       return;
     }
     _onError(err, null);
   }
 
   void _onError(err, stacktrace, {bool stopService = false}) {
-    Logger.root.severe('Error from audioservice: ${err.code}', err);
+    Logger.root.severe('Error from audioservice', err);
+    // Reset playing state so the UI shows the play button rather than pause
+    // and the seek bar stops appearing stuck.
+    if (_player.playing) {
+      _player.pause();
+    }
+    Fluttertoast.showToast(
+        msg: 'Playback error, please try again.'.i18n,
+        gravity: ToastGravity.BOTTOM,
+        toastLength: Toast.LENGTH_SHORT);
     if (stopService) stop();
   }
 
@@ -877,14 +931,22 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   //Play mix by track
   Future playMix(String trackId, String trackTitle) async {
-    List<Track> tracks = await deezerAPI.playMix(trackId);
-    playFromTrackList(
-        tracks,
-        tracks[0].id ?? '',
-        QueueSource(
-            id: trackId,
-            text: 'Mix based on'.i18n + ' $trackTitle',
-            source: 'mix'));
+    try {
+      List<Track> tracks = await deezerAPI.playMix(trackId);
+      await playFromTrackList(
+          tracks,
+          tracks[0].id ?? '',
+          QueueSource(
+              id: trackId,
+              text: 'Mix based on'.i18n + ' $trackTitle',
+              source: 'mix'));
+    } catch (e, st) {
+      Logger.root.severe('Error starting mix playback', e, st);
+      Fluttertoast.showToast(
+          msg: 'Could not load mix, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
+    }
   }
 
   //Play from artist top tracks
@@ -939,11 +1001,20 @@ class AudioPlayerHandler extends BaseAudioHandler
         return;
       }
 
-      //Flow songs cannot be accessed by smart track list call
-      if (stl.id == 'flow') {
-        stl.tracks = await deezerAPI.flow(type: stl.flowType);
-      } else {
-        stl = await deezerAPI.smartTrackList(stl.id ?? '');
+      try {
+        //Flow songs cannot be accessed by smart track list call
+        if (stl.id == 'flow') {
+          stl.tracks = await deezerAPI.flow(type: stl.flowType);
+        } else {
+          stl = await deezerAPI.smartTrackList(stl.id ?? '');
+        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading smart track list', e, st);
+        Fluttertoast.showToast(
+            msg: 'Could not load tracks, please check your connection.'.i18n,
+            gravity: ToastGravity.BOTTOM,
+            toastLength: Toast.LENGTH_SHORT);
+        return;
       }
     }
     QueueSource queueSource = QueueSource(

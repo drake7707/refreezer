@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:logging/logging.dart';
 import 'package:spotify/spotify.dart' as spotify;
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -45,9 +45,7 @@ class _SpotifyImporterV1State extends State<SpotifyImporterV1> {
       setState(() => _data = data);
       return;
     } catch (e, st) {
-      if (kDebugMode) {
-        print('$e, $st');
-      }
+      Logger.root.severe('Error loading Spotify playlist', e, st);
       setState(() {
         _error = true;
         _loading = false;
@@ -373,6 +371,8 @@ class _SpotifyImporterV2State extends State<SpotifyImporterV2> {
               builder: (context) => SpotifyImporterV2Main(spotify)));
         }
       }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking saved Spotify credentials', e, st);
     });
 
     super.initState();

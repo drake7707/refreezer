@@ -59,8 +59,8 @@ class DeezerLogin {
       } else if (responseJson.containsKey('error')) {
         throw DeezerLoginException(responseJson['error']['type'], responseJson['error']['message']);
       }
-    }).catchError((e) {
-      Logger.root.severe('Login Error (E): $e');
+    }).catchError((e, st) {
+      Logger.root.severe('Login Error (E)', e, st);
       if (e is DeezerLoginException) {
         // Throw the login exception for custom error dialog
         throw e;

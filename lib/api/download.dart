@@ -89,6 +89,8 @@ class DownloadManager {
 
       //Forward
       serviceEvents.add(e);
+    }, onError: (e, st) {
+      Logger.root.severe('Error in download service event stream', e, st);
     });
 
     await platform.invokeMethod('loadDownloads');
@@ -261,11 +263,25 @@ class DownloadManager {
 
     //Get path
     String path = _generatePath(track, private, isSingleton: isSingleton);
-    await platform.invokeMethod('addDownloads', [
-      await Download.jsonFromTrack(track, path,
-          private: private, quality: quality)
-    ]);
-    await start();
+    try {
+      await platform.invokeMethod('addDownloads', [
+        await Download.jsonFromTrack(track, path,
+            private: private, quality: quality)
+      ]);
+      await start();
+    } catch (e, st) {
+      Logger.root.severe('Failed to queue download for track ${track.id}', e, st);
+      // Rollback the DB offline flag so the track doesn't appear as offline without a file.
+      if (private) {
+        await db?.update('Tracks', {'offline': 0},
+            where: 'id == ?', whereArgs: [track.id]);
+      }
+      Fluttertoast.showToast(
+          msg: 'Download failed, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
+      return false;
+    }
     return true;
   }
 
@@ -306,8 +322,24 @@ class DownloadManager {
       out.add(await Download.jsonFromTrack(t, _generatePath(t, private),
           private: private, quality: quality));
     }
-    await platform.invokeMethod('addDownloads', out);
-    await start();
+    try {
+      await platform.invokeMethod('addDownloads', out);
+      await start();
+    } catch (e, st) {
+      Logger.root.severe('Failed to queue download for album ${album.id}', e, st);
+      if (private) {
+        for (Track t in album.tracks ?? []) {
+          await db?.update('Tracks', {'offline': 0},
+              where: 'id == ?', whereArgs: [t.id]);
+        }
+        await db?.delete('Albums', where: 'id == ?', whereArgs: [album.id]);
+      }
+      Fluttertoast.showToast(
+          msg: 'Download failed, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
+      return false;
+    }
   }
 
   Future addOfflinePlaylist(Playlist playlist,
@@ -358,8 +390,24 @@ class DownloadManager {
           private: private,
           quality: quality));
     }
-    await platform.invokeMethod('addDownloads', out);
-    await start();
+    try {
+      await platform.invokeMethod('addDownloads', out);
+      await start();
+    } catch (e, st) {
+      Logger.root.severe('Failed to queue download for playlist ${playlist.id}', e, st);
+      if (private) {
+        for (Track t in playlist.tracks ?? []) {
+          await db?.update('Tracks', {'offline': 0},
+              where: 'id == ?', whereArgs: [t.id]);
+        }
+        await db?.delete('Playlists', where: 'id == ?', whereArgs: [playlist.id]);
+      }
+      Fluttertoast.showToast(
+          msg: 'Download failed, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
+      return false;
+    }
   }
 
   //Get track and meta from offline DB

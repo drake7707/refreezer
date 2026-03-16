@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -44,6 +43,10 @@ class _LoginWidgetState extends State<LoginWidget> {
     if (settings.arl != null) {
       _init().then((_) {
         if (widget.callback != null) widget.callback!();
+      }).catchError((e, st) {
+        Logger.root.severe('Error during login initialization', e, st);
+        _error = e.toString();
+        if (mounted) errorDialog();
       });
     }
   }
@@ -131,11 +134,9 @@ class _LoginWidgetState extends State<LoginWidget> {
         errorDialog();
       }
       //On error show dialog and reset to null
-    } catch (e) {
+    } catch (e, st) {
       _error = e.toString();
-      if (kDebugMode) {
-        print('Login error: $e');
-      }
+      Logger.root.severe('Login error', e, st);
       setState(() => settings.arl = null);
       errorDialog();
     }
@@ -363,10 +364,7 @@ class _EmailLoginState extends State<EmailLogin> {
       exception = dle.toString();
     } catch (e, st) {
       exception = e.toString();
-      if (kDebugMode) {
-        print(e);
-        print(st);
-      }
+      Logger.root.severe('Email/password login error', e, st);
     }
     setState(() => _loading = false);
     settings.arl = arl;
