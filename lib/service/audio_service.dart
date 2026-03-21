@@ -655,38 +655,33 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (queueSource == null) return;
 
     List<Track> tracks = [];
-    try {
-      switch (queueSource!.source) {
-        case 'flow':
-          tracks = await deezerAPI.flow();
-          break;
-        //SmartRadio/Artist radio
-        case 'smartradio':
-          tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
-          break;
-        //Library shuffle
-        case 'libraryshuffle':
-          tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
-          break;
-        case 'mix':
-          tracks = await deezerAPI.playMix(queueSource!.id ?? '');
-          break;
-        case 'playlist':
-          // Get current position
-          int pos = queue.value.length;
-          // Load 25 more tracks from playlist
-          tracks =
-              await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
-          break;
-        default:
-          Logger.root.info('Reached end of queue source: ${queueSource!.source}');
-          break;
-      }
-    } catch (e, st) {
-      Logger.root.severe('Error loading more tracks at queue end', e, st);
-      return;
+    switch (queueSource!.source) {
+      case 'flow':
+        tracks = await deezerAPI.flow(type: queueSource!.flowConfig);
+        break;
+      //SmartRadio/Artist radio
+      case 'smartradio':
+        tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
+        break;
+      //Library shuffle
+      case 'libraryshuffle':
+        tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
+        break;
+      case 'mix':
+        tracks = await deezerAPI.playMix(queueSource!.id ?? '');
+        break;
+      case 'playlist':
+        // Get current position
+        int pos = queue.value.length;
+        // Load 25 more tracks from playlist
+        tracks =
+            await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
+        break;
+      default:
+        Logger.root.info('Reached end of queue source: ${queueSource!.source}');
+        break;
     }
-
+    
     // Deduplicate tracks already in queue with the same id
     List<String> queueIds = queue.value.map((mi) => mi.id).toList();
     tracks.removeWhere((track) => queueIds.contains(track.id));
@@ -1021,7 +1016,8 @@ class AudioPlayerHandler extends BaseAudioHandler
         id: stl.id,
         source: (stl.id == 'flow') ? 'flow' : 'smarttracklist',
         text: stl.title ??
-            ((stl.id == 'flow') ? 'Flow'.i18n : 'Smart track list'.i18n));
+            ((stl.id == 'flow') ? 'Flow'.i18n : 'Smart track list'.i18n),
+        flowConfig: stl.flowType);
     await playFromTrackList(
         stl.tracks ?? [], stl.tracks?[0].id ?? '', queueSource);
   }
