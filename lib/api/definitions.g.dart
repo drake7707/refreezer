@@ -304,6 +304,7 @@ QueueSource _$QueueSourceFromJson(Map<String, dynamic> json) => QueueSource(
       id: json['id'] as String?,
       text: json['text'] as String?,
       source: json['source'] as String?,
+      flowConfig: json['flowConfig'] as String?,
     );
 
 Map<String, dynamic> _$QueueSourceToJson(QueueSource instance) =>
@@ -311,6 +312,7 @@ Map<String, dynamic> _$QueueSourceToJson(QueueSource instance) =>
       'id': instance.id,
       'text': instance.text,
       'source': instance.source,
+      'flowConfig': instance.flowConfig,
     };
 
 SmartTrackList _$SmartTrackListFromJson(Map<String, dynamic> json) =>

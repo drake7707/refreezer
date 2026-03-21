@@ -628,7 +628,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     List<Track> tracks = [];
     switch (queueSource!.source) {
       case 'flow':
-        tracks = await deezerAPI.flow();
+        tracks = await deezerAPI.flow(type: queueSource!.flowConfig);
         break;
       //SmartRadio/Artist radio
       case 'smartradio':
@@ -950,7 +950,8 @@ class AudioPlayerHandler extends BaseAudioHandler
         id: stl.id,
         source: (stl.id == 'flow') ? 'flow' : 'smarttracklist',
         text: stl.title ??
-            ((stl.id == 'flow') ? 'Flow'.i18n : 'Smart track list'.i18n));
+            ((stl.id == 'flow') ? 'Flow'.i18n : 'Smart track list'.i18n),
+        flowConfig: stl.flowType);
     await playFromTrackList(
         stl.tracks ?? [], stl.tracks?[0].id ?? '', queueSource);
   }
