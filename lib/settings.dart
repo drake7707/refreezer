@@ -233,14 +233,14 @@ class Settings {
     //Set default path, because async
     s.downloadPath = (await ExternalPath.getExternalStoragePublicDirectory(
         ExternalPath.DIRECTORY_MUSIC));
-    s.save();
+    await s.save();
     return s;
   }
 
   Future save() async {
     File f = File(await getPath());
     await f.writeAsString(jsonEncode(toJson()));
-    downloadManager.updateServiceSettings();
+    await downloadManager.updateServiceSettings();
   }
 
   Future updateAudioServiceQuality() async {

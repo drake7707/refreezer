@@ -307,10 +307,10 @@ class _PlayerScreenHorizontalState extends State<PlayerScreenHorizontal> {
                             if (await downloadManager.addOfflineTrack(t,
                                     private: false, isSingleton: true) !=
                                 false) {
-                              Fluttertoast.showToast(
+                              unawaited(Fluttertoast.showToast(
                                   msg: 'Downloads added!'.i18n,
                                   gravity: ToastGravity.BOTTOM,
-                                  toastLength: Toast.LENGTH_SHORT);
+                                  toastLength: Toast.LENGTH_SHORT));
                             }
                           },
                         ),
@@ -437,10 +437,10 @@ class _PlayerScreenVerticalState extends State<PlayerScreenVertical> {
                   if (await downloadManager.addOfflineTrack(t,
                           private: false, isSingleton: true) !=
                       false) {
-                    Fluttertoast.showToast(
+                    unawaited(Fluttertoast.showToast(
                         msg: 'Downloads added!'.i18n,
                         gravity: ToastGravity.BOTTOM,
-                        toastLength: Toast.LENGTH_SHORT);
+                        toastLength: Toast.LENGTH_SHORT));
                   }
                 },
               ),
@@ -715,10 +715,10 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                   }
                 } catch (e, st) {
                   _logger.severe('Error disliking track', e, st);
-                  Fluttertoast.showToast(
+                  unawaited(Fluttertoast.showToast(
                       msg: 'Error, please check your connection.'.i18n,
                       gravity: ToastGravity.BOTTOM,
-                      toastLength: Toast.LENGTH_SHORT);
+                      toastLength: Toast.LENGTH_SHORT));
                 }
               }),
           PrevNextButton(widget.iconSize, prev: true),
@@ -740,10 +740,10 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                   await cache.save();
                 } catch (e, st) {
                   _logger.severe('Error removing track from favorites', e, st);
-                  Fluttertoast.showToast(
+                  unawaited(Fluttertoast.showToast(
                       msg: 'Error removing from library, please check your connection.'.i18n,
                       gravity: ToastGravity.BOTTOM,
-                      toastLength: Toast.LENGTH_SHORT);
+                      toastLength: Toast.LENGTH_SHORT));
                 }
               } else {
                 //Add
@@ -755,10 +755,10 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                   await cache.save();
                 } catch (e, st) {
                   _logger.severe('Error adding track to favorites', e, st);
-                  Fluttertoast.showToast(
+                  unawaited(Fluttertoast.showToast(
                       msg: 'Error adding to library, please check your connection.'.i18n,
                       gravity: ToastGravity.BOTTOM,
-                      toastLength: Toast.LENGTH_SHORT);
+                      toastLength: Toast.LENGTH_SHORT));
                 }
               }
             },

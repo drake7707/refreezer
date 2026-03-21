@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:logging/logging.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -324,10 +326,10 @@ class HomePageItemWidget extends StatelessWidget {
                   id: 'flow', title: deezerFlow.title, flowType: deezerFlow.id));
             } catch (e, st) {
               Logger.root.severe('Error playing flow', e, st);
-              Fluttertoast.showToast(
+              unawaited(Fluttertoast.showToast(
                   msg: 'Could not load tracks, please check your connection.'.i18n,
                   gravity: ToastGravity.BOTTOM,
-                  toastLength: Toast.LENGTH_SHORT);
+                  toastLength: Toast.LENGTH_SHORT));
             }
           },
         );
@@ -339,10 +341,10 @@ class HomePageItemWidget extends StatelessWidget {
               await GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(item.value);
             } catch (e, st) {
               Logger.root.severe('Error playing smart track list', e, st);
-              Fluttertoast.showToast(
+              unawaited(Fluttertoast.showToast(
                   msg: 'Could not load tracks, please check your connection.'.i18n,
                   gravity: ToastGravity.BOTTOM,
-                  toastLength: Toast.LENGTH_SHORT);
+                  toastLength: Toast.LENGTH_SHORT));
             }
           },
         );

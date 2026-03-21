@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,7 +25,7 @@ import './tiles.dart';
 import 'downloads_screen.dart';
 import 'settings_screen.dart';
 
-openScreenByURL(String url) async {
+Future<void> openScreenByURL(String url) async {
   DeezerLinkResponse? res = await deezerAPI.parseLink(url);
   if (res == null || res.type == null) return;
 
@@ -35,17 +37,17 @@ openScreenByURL(String url) async {
       break;
     case DeezerLinkType.ALBUM:
       Album a = await deezerAPI.album(res.id!);
-      mainNavigatorKey.currentState
+      await mainNavigatorKey.currentState
           ?.push(MaterialPageRoute(builder: (context) => AlbumDetails(a)));
       break;
     case DeezerLinkType.ARTIST:
       Artist a = await deezerAPI.artist(res.id!);
-      mainNavigatorKey.currentState
+      await mainNavigatorKey.currentState
           ?.push(MaterialPageRoute(builder: (context) => ArtistDetails(a)));
       break;
     case DeezerLinkType.PLAYLIST:
       Playlist p = await deezerAPI.playlist(res.id!);
-      mainNavigatorKey.currentState
+      await mainNavigatorKey.currentState
           ?.push(MaterialPageRoute(builder: (context) => PlaylistDetails(p)));
       break;
   }
@@ -86,7 +88,7 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => SearchResultsScreen(
               _query ?? '',
               offline: _offline,
@@ -304,10 +306,10 @@ class _SearchScreenState extends State<SearchScreen> {
                             .playFromSmartTrackList(SmartTrackList(id: 'flow'));
                       } catch (e, st) {
                         Logger.root.severe('Error loading flow', e, st);
-                        Fluttertoast.showToast(
+                        unawaited(Fluttertoast.showToast(
                             msg: 'Could not load tracks, please check your connection.'.i18n,
                             gravity: ToastGravity.BOTTOM,
-                            toastLength: Toast.LENGTH_SHORT);
+                            toastLength: Toast.LENGTH_SHORT));
                       }
                     },
                   ),
@@ -390,10 +392,10 @@ class _SearchScreenState extends State<SearchScreen> {
                                   id: 'searchhistory'));
                         } catch (e, st) {
                           Logger.root.severe('Error playing from search history', e, st);
-                          Fluttertoast.showToast(
+                          unawaited(Fluttertoast.showToast(
                               msg: 'Playback error, please try again.'.i18n,
                               gravity: ToastGravity.BOTTOM,
-                              toastLength: Toast.LENGTH_SHORT);
+                              toastLength: Toast.LENGTH_SHORT));
                         }
                       },
                       onHold: () {
@@ -600,10 +602,10 @@ class SearchResultsScreen extends StatelessWidget {
                                 source: 'search'));
                       } catch (e, st) {
                         Logger.root.severe('Error playing search result', e, st);
-                        Fluttertoast.showToast(
+                        unawaited(Fluttertoast.showToast(
                             msg: 'Playback error, please try again.'.i18n,
                             gravity: ToastGravity.BOTTOM,
-                            toastLength: Toast.LENGTH_SHORT);
+                            toastLength: Toast.LENGTH_SHORT));
                                             }
                     },
                     onHold: () {
@@ -785,7 +787,7 @@ class SearchResultsScreen extends StatelessWidget {
                   return ShowTile(
                     s,
                     onTap: () async {
-                      Navigator.of(context).push(MaterialPageRoute(
+                      await Navigator.of(context).push(MaterialPageRoute(
                           builder: (context) => ShowScreen(s)));
                     },
                   );
@@ -845,10 +847,10 @@ class SearchResultsScreen extends StatelessWidget {
                             index: episodes.indexWhere((ep) => e.id == ep.id));
                       } catch (e, st) {
                         Logger.root.severe('Error playing show episode', e, st);
-                        Fluttertoast.showToast(
+                        unawaited(Fluttertoast.showToast(
                             msg: 'Playback error, please try again.'.i18n,
                             gravity: ToastGravity.BOTTOM,
-                            toastLength: Toast.LENGTH_SHORT);
+                            toastLength: Toast.LENGTH_SHORT));
                       }
                     },
                   );
@@ -919,10 +921,10 @@ class TrackListScreen extends StatelessWidget {
                     .playFromTrackList(tracks, t.id ?? '', queueSource);
               } catch (e, st) {
                 Logger.root.severe('Error playing track from list', e, st);
-                Fluttertoast.showToast(
+                unawaited(Fluttertoast.showToast(
                     msg: 'Playback error, please try again.'.i18n,
                     gravity: ToastGravity.BOTTOM,
-                    toastLength: Toast.LENGTH_SHORT);
+                    toastLength: Toast.LENGTH_SHORT));
               }
             },
             onHold: () {
@@ -1054,10 +1056,10 @@ class EpisodeListScreen extends StatelessWidget {
                       index: episodes.indexWhere((ep) => e.id == ep.id));
                 } catch (e, st) {
                   Logger.root.severe('Error playing show episode', e, st);
-                  Fluttertoast.showToast(
+                  unawaited(Fluttertoast.showToast(
                       msg: 'Playback error, please try again.'.i18n,
                       gravity: ToastGravity.BOTTOM,
-                      toastLength: Toast.LENGTH_SHORT);
+                      toastLength: Toast.LENGTH_SHORT));
                 }
               },
             );

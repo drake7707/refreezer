@@ -166,9 +166,9 @@ class _LoginMainWrapperState extends State<LoginMainWrapper> {
 
   Future _logOut() async {
     try {
-      GetIt.I<AudioPlayerHandler>().stop();
-      GetIt.I<AudioPlayerHandler>().updateQueue([]);
-      GetIt.I<AudioPlayerHandler>().removeSavedQueueFile();
+      await GetIt.I<AudioPlayerHandler>().stop();
+      await GetIt.I<AudioPlayerHandler>().updateQueue([]);
+      await GetIt.I<AudioPlayerHandler>().removeSavedQueueFile();
     } catch (e, st) {
       Logger.root.severe(
           'Error stopping and clearing audio service before logout', e, st);
@@ -228,7 +228,7 @@ class _MainScreenState extends State<MainScreen>
   Future<void> _init() async {
     //Set display mode
     if ((settings.displayMode ?? -1) >= 0) {
-      FlutterDisplayMode.supported.then((modes) async {
+      await FlutterDisplayMode.supported.then((modes) async {
         if (modes.length - 1 >= settings.displayMode!.toInt()) {
           await FlutterDisplayMode.setPreferredMode(
               modes[settings.displayMode!.toInt()]);
@@ -244,7 +244,7 @@ class _MainScreenState extends State<MainScreen>
     await _setupServiceLocator();
 
     //Do on BG
-    GetIt.I<AudioPlayerHandler>().authorizeLastFM();
+    await GetIt.I<AudioPlayerHandler>().authorizeLastFM();
 
     //Start with parameters
     _setupDeepLinks();
@@ -257,7 +257,7 @@ class _MainScreenState extends State<MainScreen>
     });
 
     //Restore saved queue
-    _loadSavedQueue();
+    await _loadSavedQueue();
   }
 
   void _preloadFavoriteTracksToCache() async {
@@ -320,7 +320,7 @@ class _MainScreenState extends State<MainScreen>
       if (type == 'favorites') {
         Playlist p = await deezerAPI
             .fullPlaylist(deezerAPI.favoritesPlaylistId.toString());
-        GetIt.I<AudioPlayerHandler>().playFromPlaylist(p, p.tracks?[0].id ?? '');
+        await GetIt.I<AudioPlayerHandler>().playFromPlaylist(p, p.tracks?[0].id ?? '');
       }
     } catch (e, st) {
       Logger.root.severe('Error starting preload for type "$type"', e, st);
@@ -370,7 +370,7 @@ class _MainScreenState extends State<MainScreen>
       final deepLink = await deepLinks.getInitialLinkString();
       if (deepLink != null && deepLink.length > 4) {
         Logger.root.info('Opening app from deeplink: $deepLink');
-        openScreenByURL(deepLink);
+        await openScreenByURL(deepLink);
       }
     } catch (e, st) {
       Logger.root.severe('Error handling initial deep link', e, st);

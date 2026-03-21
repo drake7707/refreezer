@@ -91,7 +91,7 @@ class AudioPlayerHandler extends BaseAudioHandler
 
     // Broadcast the current queue when just_audio sequence changes.
     // Only emit value when MediaItem list contents is different from previous queue
-    _player.sequenceStateStream
+    await _player.sequenceStateStream
         .map((state) {
           try {
             return state?.effectiveSequence
@@ -168,9 +168,9 @@ class AudioPlayerHandler extends BaseAudioHandler
       }
 
       //Save queue
-      _saveQueueToFile();
+      await _saveQueueToFile();
       //Add to history
-      _addToHistory(item);
+      await _addToHistory(item);
     });
 
     // Propagate all events from the audio player to AudioService clients.
@@ -246,13 +246,13 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> play() async {
-    _player.play();
+    await _player.play();
 
     //Scrobble to LastFM
     MediaItem? newMediaItem = mediaItem.value;
     if (newMediaItem != null && newMediaItem.id != _loggedTrackId) {
       // Add to history if new track
-      _addToHistory(newMediaItem);
+      await _addToHistory(newMediaItem);
     }
   }
 
@@ -269,7 +269,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     // Handle other mediaIds by seeking to the appropriate item in the queue
     final index = queue.value.indexWhere((item) => item.id == mediaId);
     if (index != -1) {
-      _player.seek(
+      await _player.seek(
         Duration.zero,
         index:
             _player.shuffleModeEnabled ? _player.shuffleIndices![index] : index,
@@ -281,7 +281,7 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> pause() async {
-    _player.pause();
+    await _player.pause();
   }
 
   @override
@@ -367,9 +367,9 @@ class AudioPlayerHandler extends BaseAudioHandler
   @override
   Future<void> skipToPrevious() async {
     if ((_player.position.inSeconds) <= 5) {
-      _player.seekToPrevious();
+      await _player.seekToPrevious();
     } else {
-      _player.seek(Duration.zero);
+      await _player.seek(Duration.zero);
     }
   }
 
@@ -377,7 +377,7 @@ class AudioPlayerHandler extends BaseAudioHandler
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= _playlist.children.length) return;
 
-    _player.seek(
+    await _player.seek(
       Duration.zero,
       index:
           _player.shuffleModeEnabled ? _player.shuffleIndices![index] : index,
@@ -407,12 +407,12 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> onTaskRemoved() async {
-    dispose();
+    await dispose();
   }
 
   @override
   Future<void> onNotificationDeleted() async {
-    dispose();
+    await dispose();
   }
 
   @override
@@ -470,7 +470,7 @@ class AudioPlayerHandler extends BaseAudioHandler
       _player = AudioPlayer();
     }
 
-    _loadEmptyPlaylist()
+    await _loadEmptyPlaylist()
         .then((_) => Logger.root.info('audio player initialized!'))
         .catchError((e, st) {
       Logger.root.severe('Error loading empty playlist during init', e, st);
@@ -645,7 +645,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     await setShuffleMode(AudioServiceShuffleMode.none);
     await skipToQueueItem(index);
 
-    play();
+    await play();
     _requestedIndex = -1;
   }
 
@@ -742,7 +742,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (cache.history.isNotEmpty && cache.history.last.id == item.id) return;
     Logger.root.info('adding track ${item.id} to recently played history');
     cache.history.add(Track.fromMediaItem(item));
-    cache.save();
+    await cache.save();
   }
 
   //Get queue save file path
@@ -796,8 +796,8 @@ class AudioPlayerHandler extends BaseAudioHandler
   }
 
   Future dispose() async {
-    _queueStateSub?.cancel();
-    _mediaItemSub?.cancel();
+    await _queueStateSub?.cancel();
+    await _mediaItemSub?.cancel();
     await stop();
     await _player.dispose();
   }
@@ -869,7 +869,7 @@ class AudioPlayerHandler extends BaseAudioHandler
       _scrobblenautReady = true;
     } catch (e) {
       Logger.root.severe('Error authorizing LastFM: $e');
-      Fluttertoast.showToast(msg: 'Authorization error!'.i18n);
+      unawaited(Fluttertoast.showToast(msg: 'Authorization error!'.i18n));
     }
   }
 
@@ -893,13 +893,13 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Change to next repeat type
     switch (_player.loopMode) {
       case LoopMode.one:
-        setRepeatMode(AudioServiceRepeatMode.none);
+        await setRepeatMode(AudioServiceRepeatMode.none);
         break;
       case LoopMode.all:
-        setRepeatMode(AudioServiceRepeatMode.one);
+        await setRepeatMode(AudioServiceRepeatMode.one);
         break;
       default:
-        setRepeatMode(AudioServiceRepeatMode.all);
+        await setRepeatMode(AudioServiceRepeatMode.all);
         break;
     }
   }
@@ -937,10 +937,10 @@ class AudioPlayerHandler extends BaseAudioHandler
               source: 'mix'));
     } catch (e, st) {
       Logger.root.severe('Error starting mix playback', e, st);
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: 'Could not load mix, please check your connection.'.i18n,
           gravity: ToastGravity.BOTTOM,
-          toastLength: Toast.LENGTH_SHORT);
+          toastLength: Toast.LENGTH_SHORT));
     }
   }
 
@@ -989,10 +989,10 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Load from API if no tracks
     if ((stl.tracks?.length ?? 0) == 0) {
       if (settings.offlineMode) {
-        Fluttertoast.showToast(
+        unawaited(Fluttertoast.showToast(
             msg: "Offline mode, can't play flow or smart track lists.".i18n,
             gravity: ToastGravity.BOTTOM,
-            toastLength: Toast.LENGTH_SHORT);
+            toastLength: Toast.LENGTH_SHORT));
         return;
       }
 
@@ -1005,10 +1005,10 @@ class AudioPlayerHandler extends BaseAudioHandler
         }
       } catch (e, st) {
         Logger.root.severe('Error loading smart track list', e, st);
-        Fluttertoast.showToast(
+        unawaited(Fluttertoast.showToast(
             msg: 'Could not load tracks, please check your connection.'.i18n,
             gravity: ToastGravity.BOTTOM,
-            toastLength: Toast.LENGTH_SHORT);
+            toastLength: Toast.LENGTH_SHORT));
         return;
       }
     }

@@ -46,7 +46,7 @@ class _PlayerBarState extends State<PlayerBar> {
       onVerticalDragEnd: (DragEndDetails details) async {
         if ((details.primaryVelocity ?? 0) < -100) {
           // Swiped up
-          Navigator.of(context).push(SlideBottomRoute(widget: const PlayerScreen()));
+          await Navigator.of(context).push(SlideBottomRoute(widget: const PlayerScreen()));
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
             systemNavigationBarColor: settings.themeData.scaffoldBackgroundColor,
           ));

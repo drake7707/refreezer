@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:draggable_scrollbar/draggable_scrollbar.dart';
 import 'package:flutter/material.dart';
@@ -100,7 +102,7 @@ class LibraryScreen extends StatelessWidget {
                         text: 'Library shuffle'.i18n));
               } catch (e, st) {
                 Logger.root.severe('Error loading library shuffle', e, st);
-                Fluttertoast.showToast(
+                await Fluttertoast.showToast(
                     msg: 'Could not load tracks, please check your connection.'.i18n,
                     gravity: ToastGravity.BOTTOM,
                     toastLength: Toast.LENGTH_SHORT);
@@ -312,7 +314,7 @@ class _LibraryTracksState extends State<LibraryTracks> {
     await cache.save();
 
     //Preload for sorting
-    if (tracks.length < (trackCount ?? 0)) _loadFull();
+    if (tracks.length < (trackCount ?? 0)) await _loadFull();
   }
 
   Future _load() async {
@@ -398,10 +400,10 @@ class _LibraryTracksState extends State<LibraryTracks> {
         p = await deezerAPI.fullPlaylist(deezerAPI.favoritesPlaylistId ?? '');
       } catch (e, st) {
         Logger.root.severe('Error loading full favorites playlist', e, st);
-        Fluttertoast.showToast(
+        unawaited(Fluttertoast.showToast(
             msg: 'Error loading tracks!'.i18n,
             gravity: ToastGravity.BOTTOM,
-            toastLength: Toast.LENGTH_SHORT);
+            toastLength: Toast.LENGTH_SHORT));
       }
       if (p != null && mounted) {
         setState(() {
@@ -574,10 +576,10 @@ class _LibraryTracksState extends State<LibraryTracks> {
                                 source: 'playlist'));
                       } catch (e, st) {
                         Logger.root.severe('Error playing from library', e, st);
-                        Fluttertoast.showToast(
+                        unawaited(Fluttertoast.showToast(
                             msg: 'Playback error, please try again.'.i18n,
                             gravity: ToastGravity.BOTTOM,
-                            toastLength: Toast.LENGTH_SHORT);
+                            toastLength: Toast.LENGTH_SHORT));
                       }
                     },
                     onHold: () {
@@ -625,10 +627,10 @@ class _LibraryTracksState extends State<LibraryTracks> {
                                 source: 'offline'));
                       } catch (e, st) {
                         Logger.root.severe('Error playing offline track', e, st);
-                        Fluttertoast.showToast(
+                        unawaited(Fluttertoast.showToast(
                             msg: 'Playback error, please try again.'.i18n,
                             gravity: ToastGravity.BOTTOM,
-                            toastLength: Toast.LENGTH_SHORT);
+                            toastLength: Toast.LENGTH_SHORT));
                       }
                     },
                     onHold: () {
@@ -791,10 +793,10 @@ class _AlbumListState extends State<AlbumList> {
       _albums = await widget.loadAlbums();
     } catch (e) {
       Logger.root.severe('Error loading albums: $e', StackTrace.current);
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: 'Error loading albums!'.i18n,
           gravity: ToastGravity.BOTTOM,
-          toastLength: Toast.LENGTH_SHORT);
+          toastLength: Toast.LENGTH_SHORT));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1116,10 +1118,10 @@ class _LibraryPlaylistsState extends State<LibraryPlaylists> {
         Logger.root.severe('Error loading playlists: $e', st);
         // Set to empty list so the loading spinner disappears.
         if (mounted) setState(() => _playlists = []);
-        Fluttertoast.showToast(
+        unawaited(Fluttertoast.showToast(
             msg: 'Error loading playlists!'.i18n,
             gravity: ToastGravity.BOTTOM,
-            toastLength: Toast.LENGTH_SHORT);
+            toastLength: Toast.LENGTH_SHORT));
       }
     }
   }
@@ -1238,9 +1240,9 @@ class _LibraryPlaylistsState extends State<LibraryPlaylists> {
                     color: Color(0xff009a85)),
                 onTap: () async {
                   if (settings.offlineMode) {
-                    Fluttertoast.showToast(
+                    unawaited(Fluttertoast.showToast(
                         msg: 'Cannot create playlists in offline mode'.i18n,
-                        gravity: ToastGravity.BOTTOM);
+                        gravity: ToastGravity.BOTTOM));
                     return;
                   }
                   MenuSheet m = MenuSheet();
@@ -1262,7 +1264,7 @@ class _LibraryPlaylistsState extends State<LibraryPlaylists> {
               PlaylistTile(
                 favoritesPlaylist,
                 onTap: () async {
-                  Navigator.of(context).push(MaterialPageRoute(
+                  await Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) =>
                           PlaylistDetails(favoritesPlaylist)));
                 },
@@ -1392,10 +1394,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             id: null, text: 'History'.i18n, source: 'history'));
                   } catch (e, st) {
                     Logger.root.severe('Error playing from history', e, st);
-                    Fluttertoast.showToast(
+                    unawaited(Fluttertoast.showToast(
                         msg: 'Playback error, please try again.'.i18n,
                         gravity: ToastGravity.BOTTOM,
-                        toastLength: Toast.LENGTH_SHORT);
+                        toastLength: Toast.LENGTH_SHORT));
                   }
                 },
                 onHold: () {

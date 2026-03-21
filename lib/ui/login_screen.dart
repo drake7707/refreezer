@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -41,7 +43,7 @@ class _LoginWidgetState extends State<LoginWidget> {
   //Call _init()
   void _start() async {
     if (settings.arl != null) {
-      _init().then((_) {
+      await _init().then((_) {
         if (widget.callback != null) widget.callback!();
       }).catchError((e, st) {
         Logger.root.severe('Error during login initialization', e, st);
@@ -55,7 +57,7 @@ class _LoginWidgetState extends State<LoginWidget> {
   void _checkAvailability() async {
     bool? available = await DeezerAPI.checkAvailability();
     if (!(available ?? false)) {
-      showDialog(
+      await showDialog(
           context: mainNavigatorKey.currentContext!,
           builder: (context) => AlertDialog(
                 title: Text('Deezer is unavailable'.i18n),
@@ -309,7 +311,7 @@ class LoginBrowser extends StatelessWidget {
               //Offers URL
               if (!loadedUri!.path.contains('/login') &&
                   !loadedUri.path.contains('/register')) {
-                controller.evaluateJavascript(
+                await controller.evaluateJavascript(
                     source: 'window.location.href = "/open_app"');
               }
 
@@ -324,7 +326,7 @@ class LoginBrowser extends StatelessWidget {
                   String? arl = linkUri.queryParameters['arl'];
                   settings.arl = arl;
                   // Clear cookies for next login after logout
-                  CookieManager.instance().deleteAllCookies();
+                  await CookieManager.instance().deleteAllCookies();
                   Navigator.of(context).pop();
                   updateParent();
                 } catch (e) {
@@ -376,7 +378,7 @@ class _EmailLoginState extends State<EmailLogin> {
       return;
     } else if (mounted) {
       //Error
-      showDialog(
+      await showDialog(
           context: context,
           builder: (context) => AlertDialog(
                 title: Text('Error logging in!'.i18n),
@@ -425,10 +427,10 @@ class _EmailLoginState extends State<EmailLogin> {
               if (_email != null && _password != null) {
                 await _login();
               } else {
-                Fluttertoast.showToast(
+                unawaited(Fluttertoast.showToast(
                     msg: 'Missing email or password!'.i18n,
                     gravity: ToastGravity.BOTTOM,
-                    toastLength: Toast.LENGTH_SHORT);
+                    toastLength: Toast.LENGTH_SHORT));
               }
             },
           )

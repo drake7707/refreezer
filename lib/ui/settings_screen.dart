@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:clipboard/clipboard.dart';
@@ -349,7 +350,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             onTap: () async {
               List modes = await FlutterDisplayMode.supported;
               if (!context.mounted) return;
-              showDialog(
+              await showDialog(
                   context: context,
                   builder: (context) {
                     return SimpleDialog(
@@ -598,11 +599,11 @@ class _QualityPickerState extends State<QualityPicker> {
     switch (widget.field) {
       case 'mobile':
         settings.mobileQuality = _quality;
-        settings.updateAudioServiceQuality();
+        await settings.updateAudioServiceQuality();
         break;
       case 'wifi':
         settings.wifiQuality = _quality;
-        settings.updateAudioServiceQuality();
+        await settings.updateAudioServiceQuality();
         break;
       case 'download':
         settings.downloadQuality = _quality;
@@ -942,7 +943,7 @@ class _DownloadsSettingsState extends State<DownloadsSettings> {
               if (await FileUtils.checkStoragePermission()) {
                 //Navigate
                 if (context.mounted) {
-                  Navigator.of(context).push(MaterialPageRoute(
+                  await Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) => DirectoryPicker(
                             settings.downloadPath ?? '',
                             onSelect: (String p) async {
@@ -952,10 +953,10 @@ class _DownloadsSettingsState extends State<DownloadsSettings> {
                           )));
                 }
               } else {
-                Fluttertoast.showToast(
+                unawaited(Fluttertoast.showToast(
                     msg: 'Storage permission denied!'.i18n,
                     toastLength: Toast.LENGTH_SHORT,
-                    gravity: ToastGravity.BOTTOM);
+                    gravity: ToastGravity.BOTTOM));
                 return;
               }
             },
@@ -1020,7 +1021,7 @@ class _DownloadsSettingsState extends State<DownloadsSettings> {
                 if (val > 8 &&
                     cache.threadsWarning != true &&
                     context.mounted) {
-                  showDialog(
+                  await showDialog(
                       context: context,
                       builder: (context) {
                         return AlertDialog(
@@ -1317,9 +1318,9 @@ class _GeneralSettingsState extends State<GeneralSettings> {
             leading: const Icon(Icons.lock),
             onTap: () async {
               await FlutterClipboard.copy(settings.arl ?? '');
-              await Fluttertoast.showToast(
+              unawaited(Fluttertoast.showToast(
                 msg: 'Copied'.i18n,
-              );
+              ));
             },
           ),
           ListTile(
@@ -1332,7 +1333,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
               value: settings.enableEqualizer,
               onChanged: (v) async {
                 setState(() => settings.enableEqualizer = v);
-                settings.save();
+                await settings.save();
               },
             ),
           ),
@@ -1351,10 +1352,10 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                 await GetIt.I<AudioPlayerHandler>().disableLastFM();
                 //await GetIt.I<AudioPlayerHandler>().customAction('disableLastFM', Map<String, dynamic>());
                 setState(() {});
-                Fluttertoast.showToast(msg: 'Logged out!'.i18n);
+                unawaited(Fluttertoast.showToast(msg: 'Logged out!'.i18n));
                 return;
               } else {
-                showDialog(
+                await showDialog(
                   context: context,
                   builder: (context) => const LastFMLogin(),
                 ).then((_) {
@@ -1485,7 +1486,7 @@ class _LastFMLoginState extends State<LastFMLogin> {
                   password: _password);
             } catch (e) {
               Logger.root.severe('Error authorizing LastFM: $e');
-              Fluttertoast.showToast(msg: 'Authorization error!'.i18n);
+              unawaited(Fluttertoast.showToast(msg: 'Authorization error!'.i18n));
               return;
             }
             //Save
