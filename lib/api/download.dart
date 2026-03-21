@@ -729,8 +729,11 @@ class DownloadManager {
 
   //Send settings to download service
   Future updateServiceSettings() async {
-    await platform.invokeMethod(
-        'updateSettings', settings.getServiceSettings());
+    try {
+      await platform.invokeMethod('updateSettings', settings.getServiceSettings());
+    } catch (e, st) {
+      Logger.root.severe('Failed to update download service settings', e, st);
+    }
   }
 
   //Check storage permission

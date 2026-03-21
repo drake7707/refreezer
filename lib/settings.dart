@@ -233,6 +233,7 @@ class Settings {
     //Set default path, because async
     s.downloadPath = (await ExternalPath.getExternalStoragePublicDirectory(
         ExternalPath.DIRECTORY_MUSIC));
+    settings = s; // make sure to set the settings because otherwise the downloadManager does not have the settings when it tries to update the service settings, which causes a crash
     await s.save();
     return s;
   }

@@ -41,7 +41,7 @@ void main() async {
 
   await Permission.notification.isDenied.then((value) {
     if (value) {
-      Permission.notification.request();
+      Permission.notification.request();  
     }
   });
 
