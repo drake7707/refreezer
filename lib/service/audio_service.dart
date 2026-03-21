@@ -91,7 +91,7 @@ class AudioPlayerHandler extends BaseAudioHandler
 
     // Broadcast the current queue when just_audio sequence changes.
     // Only emit value when MediaItem list contents is different from previous queue
-    await _player.sequenceStateStream
+    unawaited(_player.sequenceStateStream
         .map((state) {
           try {
             return state?.effectiveSequence
@@ -112,7 +112,7 @@ class AudioPlayerHandler extends BaseAudioHandler
         })
         .whereType<List<MediaItem>>() // Filter out null values (error occured).
         .distinct((a, b) => listEquals(a, b))
-        .pipe(queue);
+        .pipe(queue));
 
     // Update current QueueState
     _queueStateSub = Rx.combineLatest3<List<MediaItem>, PlaybackState,
