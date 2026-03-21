@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
 
 import '../api/deezer.dart';
@@ -118,41 +119,47 @@ class _HomePageScreenState extends State<HomePageScreen> {
     //Fetch channel from api
     try {
       hp = await deezerAPI.getChannel(widget.channel?.target ?? '');
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading channel', e, st);
     }
     if (hp == null) {
       //On error
-      setState(() => _error = true);
+      if (mounted) setState(() => _error = true);
       return;
     }
-    setState(() => _homePage = hp);
+    if (mounted) setState(() => _homePage = hp);
   }
 
   void _loadHomePage() async {
     //Load local
+    bool cacheLoaded = false;
     try {
       HomePage hp = await HomePage().load();
-      setState(() => _homePage = hp);
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+      if (mounted) setState(() => _homePage = hp);
+      cacheLoaded = true;
+    } catch (e, st) {
+      Logger.root.warning('Error loading cached home page', e, st);
     }
     //On background load from API
     try {
       if (settings.offlineMode) await deezerAPI.authorize();
       HomePage hp = await deezerAPI.homePage();
       if (_cancel) return;
-      if (hp.sections.isEmpty) return;
-      setState(() => _homePage = hp);
+      if (hp.sections.isEmpty) {
+        // If no API data and no cache, show error
+        if (mounted && !cacheLoaded && _homePage == null) {
+          setState(() => _error = true);
+        }
+        return;
+      }
+      if (mounted) setState(() => _homePage = hp);
       //Save to cache
       await _homePage?.save();
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
+    } catch (e, st) {
+      Logger.root.severe('Error loading home page from API', e, st);
+      // If no cache was loaded either, show error screen
+      if (mounted && !cacheLoaded && _homePage == null) {
+        setState(() => _error = true);
       }
     }
   }
@@ -310,17 +317,33 @@ class HomePageItemWidget extends StatelessWidget {
       case HomePageItemType.FLOW:
         return FlowTrackListTile(
           item.value,
-          onTap: () {
+          onTap: () async {
             DeezerFlow deezerFlow = item.value;
-            GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(SmartTrackList(
-                id: 'flow', title: deezerFlow.title, flowType: deezerFlow.id));
+            try {
+              await GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(SmartTrackList(
+                  id: 'flow', title: deezerFlow.title, flowType: deezerFlow.id));
+            } catch (e, st) {
+              Logger.root.severe('Error playing flow', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Could not load tracks, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+            }
           },
         );
       case HomePageItemType.SMARTTRACKLIST:
         return SmartTrackListTile(
           item.value,
-          onTap: () {
-            GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(item.value);
+          onTap: () async {
+            try {
+              await GetIt.I<AudioPlayerHandler>().playFromSmartTrackList(item.value);
+            } catch (e, st) {
+              Logger.root.severe('Error playing smart track list', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Could not load tracks, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+            }
           },
         );
       case HomePageItemType.ALBUM:

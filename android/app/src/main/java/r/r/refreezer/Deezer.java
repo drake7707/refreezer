@@ -87,6 +87,7 @@ public class Deezer {
             URL url = new URL(_url);
             HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
             connection.setConnectTimeout(20000);
+            connection.setReadTimeout(20000);
             connection.setDoOutput(true);
             connection.setRequestMethod("POST");
             connection.setRequestProperty("User-Agent", USER_AGENT);
@@ -703,6 +704,8 @@ public class Deezer {
                 //Create HEAD requests to check if exists
                 URL url = new URL(urlGen.first);
                 HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
                 connection.setRequestMethod("HEAD");
                 connection.setRequestProperty("User-Agent", USER_AGENT);
                 connection.setRequestProperty("Accept-Language", "*");

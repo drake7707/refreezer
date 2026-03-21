@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
 
 import '../api/cache.dart';
 import '../api/deezer.dart';
@@ -187,21 +188,37 @@ class _AlbumDetailsState extends State<AlbumDetails> {
                             onPressed: () async {
                               //Add to library
                               if (!(album.library ?? false)) {
-                                await deezerAPI.addFavoriteAlbum(album.id ?? '');
-                                Fluttertoast.showToast(
-                                    msg: 'Added to library'.i18n,
-                                    toastLength: Toast.LENGTH_SHORT,
-                                    gravity: ToastGravity.BOTTOM);
-                                setState(() => album.library = true);
+                                try {
+                                  await deezerAPI.addFavoriteAlbum(album.id ?? '');
+                                  Fluttertoast.showToast(
+                                      msg: 'Added to library'.i18n,
+                                      toastLength: Toast.LENGTH_SHORT,
+                                      gravity: ToastGravity.BOTTOM);
+                                  setState(() => album.library = true);
+                                } catch (e, st) {
+                                  Logger.root.severe('Error adding album to library', e, st);
+                                  Fluttertoast.showToast(
+                                      msg: 'Error adding to library, please check your connection.'.i18n,
+                                      toastLength: Toast.LENGTH_SHORT,
+                                      gravity: ToastGravity.BOTTOM);
+                                }
                                 return;
                               }
                               //Remove
-                              await deezerAPI.removeAlbum(album.id ?? '');
-                              Fluttertoast.showToast(
-                                  msg: 'Album removed from library!'.i18n,
-                                  toastLength: Toast.LENGTH_SHORT,
-                                  gravity: ToastGravity.BOTTOM);
-                              setState(() => album.library = false);
+                              try {
+                                await deezerAPI.removeAlbum(album.id ?? '');
+                                Fluttertoast.showToast(
+                                    msg: 'Album removed from library!'.i18n,
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM);
+                                setState(() => album.library = false);
+                              } catch (e, st) {
+                                Logger.root.severe('Error removing album from library', e, st);
+                                Fluttertoast.showToast(
+                                    msg: 'Error removing from library, please check your connection.'.i18n,
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM);
+                              }
                             },
                           ),
                           MakeAlbumOffline(album: album),
@@ -219,8 +236,16 @@ class _AlbumDetailsState extends State<AlbumDetails> {
                               ],
                             ),
                             onPressed: () async {
-                              if (await downloadManager.addOfflineAlbum(album, private: false) != false) {
-                                MenuSheet().showDownloadStartedToast();
+                              try {
+                                if (await downloadManager.addOfflineAlbum(album, private: false) != false) {
+                                  MenuSheet().showDownloadStartedToast();
+                                }
+                              } catch (e, st) {
+                                Logger.root.severe('Error downloading album', e, st);
+                                Fluttertoast.showToast(
+                                    msg: 'Download failed, please check your connection.'.i18n,
+                                    gravity: ToastGravity.BOTTOM,
+                                    toastLength: Toast.LENGTH_SHORT);
                               }
                             },
                           )
@@ -243,8 +268,16 @@ class _AlbumDetailsState extends State<AlbumDetails> {
                             ),
                             ...List.generate(
                                 tracks.length,
-                                (i) => TrackTile(tracks[i], onTap: () {
-                                      GetIt.I<AudioPlayerHandler>().playFromAlbum(album, tracks[i].id ?? '');
+                                (i) => TrackTile(tracks[i], onTap: () async {
+                                      try {
+                                        await GetIt.I<AudioPlayerHandler>().playFromAlbum(album, tracks[i].id ?? '');
+                                      } catch (e, st) {
+                                        Logger.root.severe('Error playing from album', e, st);
+                                        Fluttertoast.showToast(
+                                            msg: 'Playback error, please try again.'.i18n,
+                                            gravity: ToastGravity.BOTTOM,
+                                            toastLength: Toast.LENGTH_SHORT);
+                                      }
                                     }, onHold: () {
                                       MenuSheet m = MenuSheet();
                                       m.defaultTrackMenu(tracks[i], context: context);
@@ -272,9 +305,13 @@ class _MakeAlbumOfflineState extends State<MakeAlbumOffline> {
   void initState() {
     super.initState();
     downloadManager.checkOffline(album: widget.album).then((v) {
-      setState(() {
-        _offline = v;
-      });
+      if (mounted) {
+        setState(() {
+          _offline = v;
+        });
+      }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking offline status for album', e, st);
     });
   }
 
@@ -287,20 +324,37 @@ class _MakeAlbumOfflineState extends State<MakeAlbumOffline> {
           onChanged: (v) async {
             if (v) {
               //Add to offline
-              await deezerAPI.addFavoriteAlbum(widget.album?.id ?? '');
-              await downloadManager.addOfflineAlbum(widget.album ?? Album(), private: true);
-              MenuSheet().showDownloadStartedToast();
-              setState(() {
-                _offline = true;
-              });
+              try {
+                await deezerAPI.addFavoriteAlbum(widget.album?.id ?? '');
+                await downloadManager.addOfflineAlbum(widget.album ?? Album(), private: true);
+                MenuSheet().showDownloadStartedToast();
+                setState(() {
+                  _offline = true;
+                });
+              } catch (e, st) {
+                Logger.root.severe('Error making album offline', e, st);
+                Fluttertoast.showToast(
+                    msg: 'Error making album offline, please check your connection.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT);
+              }
               return;
             }
-            downloadManager.removeOfflineAlbum(widget.album?.id ?? '');
-            Fluttertoast.showToast(
-                msg: 'Removed album from offline!'.i18n, gravity: ToastGravity.BOTTOM, toastLength: Toast.LENGTH_SHORT);
-            setState(() {
-              _offline = false;
-            });
+            //Remove
+            try {
+              await downloadManager.removeOfflineAlbum(widget.album?.id ?? '');
+              Fluttertoast.showToast(
+                  msg: 'Removed album from offline!'.i18n, gravity: ToastGravity.BOTTOM, toastLength: Toast.LENGTH_SHORT);
+              setState(() {
+                _offline = false;
+              });
+            } catch (e, st) {
+              Logger.root.severe('Error removing album from offline', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Error removing album from offline, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+            }
           },
         ),
         Container(
@@ -442,11 +496,19 @@ class _ArtistDetailsState extends State<ArtistDetails> {
                               ],
                             ),
                             onPressed: () async {
-                              await deezerAPI.addFavoriteArtist(artist.id ?? '');
-                              Fluttertoast.showToast(
-                                  msg: 'Added to library'.i18n,
-                                  toastLength: Toast.LENGTH_SHORT,
-                                  gravity: ToastGravity.BOTTOM);
+                              try {
+                                await deezerAPI.addFavoriteArtist(artist.id ?? '');
+                                Fluttertoast.showToast(
+                                    msg: 'Added to library'.i18n,
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM);
+                              } catch (e, st) {
+                                Logger.root.severe('Error adding artist to library', e, st);
+                                Fluttertoast.showToast(
+                                    msg: 'Error adding to library, please check your connection.'.i18n,
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM);
+                              }
                             },
                           ),
                           if ((artist.radio ?? false))
@@ -461,13 +523,21 @@ class _ArtistDetailsState extends State<ArtistDetails> {
                                 ],
                               ),
                               onPressed: () async {
-                                List<Track> tracks = await deezerAPI.smartRadio(artist.id ?? '');
-                                if (tracks.isNotEmpty) {
-                                  GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                                      tracks,
-                                      tracks[0].id!,
-                                      QueueSource(
-                                          id: artist.id, text: 'Radio'.i18n + ' ${artist.name}', source: 'smartradio'));
+                                try {
+                                  List<Track> tracks = await deezerAPI.smartRadio(artist.id ?? '');
+                                  if (tracks.isNotEmpty) {
+                                    await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                                        tracks,
+                                        tracks[0].id!,
+                                        QueueSource(
+                                            id: artist.id, text: 'Radio'.i18n + ' ${artist.name}', source: 'smartradio'));
+                                  }
+                                } catch (e, st) {
+                                  Logger.root.severe('Error loading artist radio', e, st);
+                                  Fluttertoast.showToast(
+                                      msg: 'Could not load tracks, please check your connection.'.i18n,
+                                      gravity: ToastGravity.BOTTOM,
+                                      toastLength: Toast.LENGTH_SHORT);
                                 }
                               },
                             )
@@ -859,13 +929,14 @@ class _PlaylistDetailsState extends State<PlaylistDetails> {
       //Get correct metadata
       setState(() => _loading = true);
       deezerAPI.playlist(playlist.id!, nb: 25).then((Playlist p) {
-        setState(() {
-          playlist = p;
-          _loading = false;
-        });
-        //Load tracks
-        //_load();
-      }).catchError((e) {
+        if (mounted) {
+          setState(() {
+            playlist = p;
+            _loading = false;
+          });
+        }
+      }).catchError((e, st) {
+        Logger.root.severe('Error loading playlist', e, st);
         if (mounted) setState(() => _error = true);
       });
     }
@@ -989,19 +1060,35 @@ class _PlaylistDetailsState extends State<PlaylistDetails> {
                   onPressed: () async {
                     //Add to library
                     if (!(playlist.library ?? false)) {
-                      await deezerAPI.addPlaylist(playlist.id!);
-                      Fluttertoast.showToast(
-                          msg: 'Added to library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
-                      setState(() => playlist.library = true);
+                      try {
+                        await deezerAPI.addPlaylist(playlist.id!);
+                        Fluttertoast.showToast(
+                            msg: 'Added to library'.i18n, toastLength: Toast.LENGTH_SHORT, gravity: ToastGravity.BOTTOM);
+                        setState(() => playlist.library = true);
+                      } catch (e, st) {
+                        Logger.root.severe('Error adding playlist to library', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Error adding to library, please check your connection.'.i18n,
+                            toastLength: Toast.LENGTH_SHORT,
+                            gravity: ToastGravity.BOTTOM);
+                      }
                       return;
                     }
                     //Remove
-                    await deezerAPI.removePlaylist(playlist.id!);
-                    Fluttertoast.showToast(
-                        msg: 'Playlist removed from library!'.i18n,
-                        toastLength: Toast.LENGTH_SHORT,
-                        gravity: ToastGravity.BOTTOM);
-                    setState(() => playlist.library = false);
+                    try {
+                      await deezerAPI.removePlaylist(playlist.id!);
+                      Fluttertoast.showToast(
+                          msg: 'Playlist removed from library!'.i18n,
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM);
+                      setState(() => playlist.library = false);
+                    } catch (e, st) {
+                      Logger.root.severe('Error removing playlist from library', e, st);
+                      Fluttertoast.showToast(
+                          msg: 'Error removing playlist from library, please check your connection.'.i18n,
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM);
+                    }
                   },
                 ),
               IconButton(
@@ -1019,9 +1106,18 @@ class _PlaylistDetailsState extends State<PlaylistDetails> {
               PopupMenuButton(
                 color: Theme.of(context).scaffoldBackgroundColor,
                 onSelected: (SortType s) async {
-                  if (playlist.tracks!.length < (playlist.trackCount ?? 0)) {
-                    //Preload whole playlist
-                    playlist = await deezerAPI.fullPlaylist(playlist.id!);
+                  try {
+                    if (playlist.tracks!.length < (playlist.trackCount ?? 0)) {
+                      //Preload whole playlist
+                      playlist = await deezerAPI.fullPlaylist(playlist.id!);
+                    }
+                  } catch (e, st) {
+                    Logger.root.severe('Error loading full playlist for sort', e, st);
+                    Fluttertoast.showToast(
+                        msg: 'Error loading playlist, please check your connection.'.i18n,
+                        gravity: ToastGravity.BOTTOM,
+                        toastLength: Toast.LENGTH_SHORT);
+                    return;
                   }
                   setState(() => _sort.type = s);
 
@@ -1071,9 +1167,17 @@ class _PlaylistDetailsState extends State<PlaylistDetails> {
           const FreezerDivider(),
           ...List.generate(playlist.tracks!.length, (i) {
             Track t = sorted[i];
-            return TrackTile(t, onTap: () {
-              Playlist p = Playlist(title: playlist.title, id: playlist.id, tracks: sorted);
-              GetIt.I<AudioPlayerHandler>().playFromPlaylist(p, t.id!);
+            return TrackTile(t, onTap: () async {
+              try {
+                Playlist p = Playlist(title: playlist.title, id: playlist.id, tracks: sorted);
+                await GetIt.I<AudioPlayerHandler>().playFromPlaylist(p, t.id!);
+              } catch (e, st) {
+                Logger.root.severe('Error playing from playlist', e, st);
+                Fluttertoast.showToast(
+                    msg: 'Playback error, please try again.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT);
+              }
             }, onHold: () {
               MenuSheet m = MenuSheet();
               m.defaultTrackMenu(t, context: context, options: [
@@ -1117,9 +1221,13 @@ class _MakePlaylistOfflineState extends State<MakePlaylistOffline> {
   void initState() {
     super.initState();
     downloadManager.checkOffline(playlist: widget.playlist).then((v) {
-      setState(() {
-        _offline = v;
-      });
+      if (mounted) {
+        setState(() {
+          _offline = v;
+        });
+      }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking offline status for playlist', e, st);
     });
   }
 
@@ -1132,24 +1240,41 @@ class _MakePlaylistOfflineState extends State<MakePlaylistOffline> {
           onChanged: (v) async {
             if (v) {
               //Add to offline
-              if (widget.playlist.user?.id != deezerAPI.userId) {
-                await deezerAPI.addPlaylist(widget.playlist.id!);
+              try {
+                if (widget.playlist.user?.id != deezerAPI.userId) {
+                  await deezerAPI.addPlaylist(widget.playlist.id!);
+                }
+                await downloadManager.addOfflinePlaylist(widget.playlist, private: true);
+                MenuSheet().showDownloadStartedToast();
+                setState(() {
+                  _offline = true;
+                });
+              } catch (e, st) {
+                Logger.root.severe('Error making playlist offline', e, st);
+                Fluttertoast.showToast(
+                    msg: 'Error making playlist offline, please check your connection.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT);
               }
-              downloadManager.addOfflinePlaylist(widget.playlist, private: true);
-              MenuSheet().showDownloadStartedToast();
-              setState(() {
-                _offline = true;
-              });
               return;
             }
-            downloadManager.removeOfflinePlaylist(widget.playlist.id!);
-            Fluttertoast.showToast(
-                msg: 'Playlist removed from offline!'.i18n,
-                gravity: ToastGravity.BOTTOM,
-                toastLength: Toast.LENGTH_SHORT);
-            setState(() {
-              _offline = false;
-            });
+            //Remove
+            try {
+              await downloadManager.removeOfflinePlaylist(widget.playlist.id!);
+              Fluttertoast.showToast(
+                  msg: 'Playlist removed from offline!'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+              setState(() {
+                _offline = false;
+              });
+            } catch (e, st) {
+              Logger.root.severe('Error removing playlist from offline', e, st);
+              Fluttertoast.showToast(
+                  msg: 'Error removing playlist from offline, please check your connection.'.i18n,
+                  gravity: ToastGravity.BOTTOM,
+                  toastLength: Toast.LENGTH_SHORT);
+            }
           },
         ),
         Container(
@@ -1277,7 +1402,15 @@ class _ShowScreenState extends State<ShowScreen> {
                   },
                 ),
                 onTap: () async {
-                  await GetIt.I<AudioPlayerHandler>().playShowEpisode(_show, _episodes, index: i);
+                  try {
+                    await GetIt.I<AudioPlayerHandler>().playShowEpisode(_show, _episodes, index: i);
+                  } catch (e, st) {
+                    Logger.root.severe('Error playing show episode', e, st);
+                    Fluttertoast.showToast(
+                        msg: 'Playback error, please try again.'.i18n,
+                        gravity: ToastGravity.BOTTOM,
+                        toastLength: Toast.LENGTH_SHORT);
+                  }
                 },
               );
             })

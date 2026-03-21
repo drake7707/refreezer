@@ -1,6 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:draggable_scrollbar/draggable_scrollbar.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -90,14 +89,22 @@ class LibraryScreen extends StatelessWidget {
             title: Text('Shuffle'.i18n),
             leading: const LeadingIcon(Icons.shuffle, color: Color(0xffeca704)),
             onTap: () async {
-              List<Track> tracks = await deezerAPI.libraryShuffle();
-              GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                  tracks,
-                  tracks[0].id!,
-                  QueueSource(
-                      id: 'libraryshuffle',
-                      source: 'libraryshuffle',
-                      text: 'Library shuffle'.i18n));
+              try {
+                List<Track> tracks = await deezerAPI.libraryShuffle();
+                await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                    tracks,
+                    tracks[0].id!,
+                    QueueSource(
+                        id: 'libraryshuffle',
+                        source: 'libraryshuffle',
+                        text: 'Library shuffle'.i18n));
+              } catch (e, st) {
+                Logger.root.severe('Error loading library shuffle', e, st);
+                Fluttertoast.showToast(
+                    msg: 'Could not load tracks, please check your connection.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT);
+              }
             },
           ),
           const FreezerDivider(),
@@ -336,10 +343,8 @@ class _LibraryTracksState extends State<LibraryTracks> {
         try {
           favPlaylist =
               await deezerAPI.playlist(deezerAPI.favoritesPlaylistId ?? '');
-        } catch (e) {
-          if (kDebugMode) {
-            print(e);
-          }
+        } catch (e, st) {
+          Logger.root.severe('Error loading favorites playlist', e, st);
         }
         //Error loading
         if (favPlaylist == null) {
@@ -366,10 +371,8 @@ class _LibraryTracksState extends State<LibraryTracks> {
       try {
         t = await deezerAPI.playlistTracksPage(
             deezerAPI.favoritesPlaylistId ?? '', pos);
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading playlist tracks page', e, st);
       }
       //On error load offline
       if (t == null) {
@@ -390,17 +393,19 @@ class _LibraryTracksState extends State<LibraryTracks> {
   //Load all tracks
   Future _loadFull() async {
     if (tracks.isEmpty || tracks.length < (trackCount ?? 0)) {
-      late Playlist p;
+      Playlist? p;
       try {
         p = await deezerAPI.fullPlaylist(deezerAPI.favoritesPlaylistId ?? '');
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error loading full favorites playlist', e, st);
+        Fluttertoast.showToast(
+            msg: 'Error loading tracks!'.i18n,
+            gravity: ToastGravity.BOTTOM,
+            toastLength: Toast.LENGTH_SHORT);
       }
-      if (mounted) {
+      if (p != null && mounted) {
         setState(() {
-          tracks = p.tracks!;
+          tracks = p!.tracks ?? [];
           trackCount = p.trackCount;
           _sort = _sort;
         });
@@ -556,16 +561,24 @@ class _LibraryTracksState extends State<LibraryTracks> {
                       : tracks[i];
                   return TrackTile(
                     t,
-                    onTap: () {
-                      GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                          (tracks.length == (trackCount ?? 0))
-                              ? _sorted
-                              : tracks,
-                          t.id!,
-                          QueueSource(
-                              id: deezerAPI.favoritesPlaylistId,
-                              text: 'Favorites'.i18n,
-                              source: 'playlist'));
+                    onTap: () async {
+                      try {
+                        await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                            (tracks.length == (trackCount ?? 0))
+                                ? _sorted
+                                : tracks,
+                            t.id!,
+                            QueueSource(
+                                id: deezerAPI.favoritesPlaylistId,
+                                text: 'Favorites'.i18n,
+                                source: 'playlist'));
+                      } catch (e, st) {
+                        Logger.root.severe('Error playing from library', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                      }
                     },
                     onHold: () {
                       MenuSheet m = MenuSheet();
@@ -601,14 +614,22 @@ class _LibraryTracksState extends State<LibraryTracks> {
                   Track t = allTracks[i];
                   return TrackTile(
                     t,
-                    onTap: () {
-                      GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                          allTracks,
-                          t.id!,
-                          QueueSource(
-                              id: 'allTracks',
-                              text: 'All offline tracks'.i18n,
-                              source: 'offline'));
+                    onTap: () async {
+                      try {
+                        await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                            allTracks,
+                            t.id!,
+                            QueueSource(
+                                id: 'allTracks',
+                                text: 'All offline tracks'.i18n,
+                                source: 'offline'));
+                      } catch (e, st) {
+                        Logger.root.severe('Error playing offline track', e, st);
+                        Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT);
+                      }
                     },
                     onHold: () {
                       MenuSheet m = MenuSheet();
@@ -770,6 +791,10 @@ class _AlbumListState extends State<AlbumList> {
       _albums = await widget.loadAlbums();
     } catch (e) {
       Logger.root.severe('Error loading albums: $e', StackTrace.current);
+      Fluttertoast.showToast(
+          msg: 'Error loading albums!'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -915,10 +940,8 @@ class _LibraryArtistsState extends State<LibraryArtists> {
     List<Artist>? data;
     try {
       data = await deezerAPI.getArtists();
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.severe('Error loading artists', e, st);
     }
     //Update UI
     if (mounted) {
@@ -1089,8 +1112,14 @@ class _LibraryPlaylistsState extends State<LibraryPlaylists> {
       try {
         List<Playlist> playlists = await deezerAPI.getPlaylists();
         if (mounted) setState(() => _playlists = playlists);
-      } catch (e) {
-        Logger.root.severe('Error loading playlists: $e');
+      } catch (e, st) {
+        Logger.root.severe('Error loading playlists: $e', st);
+        // Set to empty list so the loading spinner disappears.
+        if (mounted) setState(() => _playlists = []);
+        Fluttertoast.showToast(
+            msg: 'Error loading playlists!'.i18n,
+            gravity: ToastGravity.BOTTOM,
+            toastLength: Toast.LENGTH_SHORT);
       }
     }
   }
@@ -1337,9 +1366,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Icons.delete_sweep,
               semanticLabel: 'Clear all'.i18n,
             ),
-            onPressed: () {
+            onPressed: () async {
               setState(() => cache.history = []);
-              cache.save();
+              await cache.save();
             },
           )
         ],
@@ -1354,12 +1383,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Track t = cache.history[cache.history.length - i - 1];
               return TrackTile(
                 t,
-                onTap: () {
-                  GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                      cache.history.reversed.toList(),
-                      t.id!,
-                      QueueSource(
-                          id: null, text: 'History'.i18n, source: 'history'));
+                onTap: () async {
+                  try {
+                    await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                        cache.history.reversed.toList(),
+                        t.id!,
+                        QueueSource(
+                            id: null, text: 'History'.i18n, source: 'history'));
+                  } catch (e, st) {
+                    Logger.root.severe('Error playing from history', e, st);
+                    Fluttertoast.showToast(
+                        msg: 'Playback error, please try again.'.i18n,
+                        gravity: ToastGravity.BOTTOM,
+                        toastLength: Toast.LENGTH_SHORT);
+                  }
                 },
                 onHold: () {
                   MenuSheet m = MenuSheet();
