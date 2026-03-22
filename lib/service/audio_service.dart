@@ -178,11 +178,7 @@ class AudioPlayerHandler extends BaseAudioHandler
         Logger.root.severe('Error saving queue to file', e, st);
       }
       //Add to history
-      try {
-        await _addToHistory(item);
-      } catch (e, st) {
-        Logger.root.severe('Error adding track to history', e, st);
-      }
+      await _addToHistory(item);
     });
 
     // Propagate all events from the audio player to AudioService clients.
@@ -264,11 +260,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     MediaItem? newMediaItem = mediaItem.value;
     if (newMediaItem != null && newMediaItem.id != _loggedTrackId) {
       // Add to history if new track
-      try {
-        await _addToHistory(newMediaItem);
-      } catch (e, st) {
-        Logger.root.severe('Error adding track to history in play()', e, st);
-      }
+      await _addToHistory(newMediaItem);
     }
   }
 
@@ -760,17 +752,25 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (_scrobblenautReady && !(_loggedTrackId == item.id)) {
       Logger.root.info('scrobbling track ${item.id} to recently LastFM');
       _loggedTrackId = item.id;
-      await _scrobblenaut?.track.scrobble(
-        track: item.title,
-        artist: item.artist ?? '',
-        album: item.album,
-      );
+      try {
+        await _scrobblenaut?.track.scrobble(
+          track: item.title,
+          artist: item.artist ?? '',
+          album: item.album,
+        );
+      } catch (e, st) {
+        Logger.root.severe('Error scrobbling track ${item.id} to LastFM', e, st);
+      }
     }
 
     if (cache.history.isNotEmpty && cache.history.last.id == item.id) return;
     Logger.root.info('adding track ${item.id} to recently played history');
     cache.history.add(Track.fromMediaItem(item));
-    await cache.save();
+    try {
+      await cache.save();
+    } catch (e, st) {
+      Logger.root.severe('Error saving cache after adding track to history', e, st);
+    }
   }
 
   //Get queue save file path
