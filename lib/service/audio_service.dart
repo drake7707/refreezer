@@ -675,7 +675,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (queueSource == null) return;
 
     const int maxRetries = 3;
-    const Duration retryDelay = Duration(seconds: 2);
+    const Duration retryDelay = Duration(milliseconds: 200);
     // Capture base playlist position once to ensure consistent pagination
     final int basePos = queue.value.length;
 
