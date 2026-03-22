@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -86,10 +87,10 @@ class _UpdaterScreenState extends State<UpdaterScreen> {
 
   Future _download() async {
     if (!await _hasInstallPackagesPermission()) {
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: 'Permission denied, download canceled!'.i18n,
           toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM);
+          gravity: ToastGravity.BOTTOM));
       setState(() {
         _progress = 0.0;
         _buttonEnabled = true;
@@ -113,26 +114,26 @@ class _UpdaterScreenState extends State<UpdaterScreen> {
       File file = File(path);
       IOSink fileSink = file.openWrite();
       //Update progress
-      Future.doWhile(() async {
+      await Future.doWhile(() async {
         int received = await file.length();
         setState(() => _progress = received / size!.toInt());
         return received != size;
       });
       //Pipe
       await res.stream.pipe(fileSink);
-      fileSink.close();
+      await fileSink.close();
 
-      OpenFilex.open(path);
+      await OpenFilex.open(path);
       setState(() {
         _buttonEnabled = true;
         _progress = 0.0;
       });
     } catch (e) {
       Logger.root.severe('Failed to download latest release file', e);
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: 'Download failed!'.i18n,
           toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM);
+          gravity: ToastGravity.BOTTOM));
       setState(() {
         _progress = 0.0;
         _buttonEnabled = true;
@@ -347,8 +348,8 @@ class ReFreezerLatest {
           AndroidInitializationSettings('drawable/ic_logo');
       const InitializationSettings initializationSettings =
           InitializationSettings(
-              android: androidInitializationSettings, iOS: null);
-      await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+              android: androidInitializationSettings);
+      await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
 
       AndroidNotificationDetails androidNotificationDetails =
           AndroidNotificationDetails(
@@ -360,13 +361,13 @@ class ReFreezerLatest {
       );
 
       NotificationDetails notificationDetails =
-          NotificationDetails(android: androidNotificationDetails, iOS: null);
+          NotificationDetails(android: androidNotificationDetails);
 
       await flutterLocalNotificationsPlugin.show(
-          0,
-          'New update available!'.i18n,
-          'Update to latest version in the settings.'.i18n,
-          notificationDetails);
+          id: 0,
+          title: 'New update available!'.i18n,
+          body: 'Update to latest version in the settings.'.i18n,
+          notificationDetails: notificationDetails);
     } catch (e) {
       Logger.root.severe('Error checking for updates', e);
     }

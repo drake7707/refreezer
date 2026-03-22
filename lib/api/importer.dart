@@ -46,7 +46,7 @@ class Importer {
     busy = true;
     done = false;
     _streamController = StreamController.broadcast();
-    _start();
+    await _start();
   }
 
   //Start importer
@@ -83,7 +83,7 @@ class Importer {
     busy = false;
     //To update UI
     _streamController.add(null);
-    _streamController.close();
+    await _streamController.close();
   }
 
   //Find track on Deezer servers

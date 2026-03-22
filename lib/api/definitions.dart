@@ -781,8 +781,9 @@ class QueueSource {
   String? id;
   String? text;
   String? source;
+  String? flowConfig;
 
-  QueueSource({this.id, this.text, this.source});
+  QueueSource({this.id, this.text, this.source, this.flowConfig});
 
   factory QueueSource.fromJson(Map<String, dynamic> json) =>
       _$QueueSourceFromJson(json);

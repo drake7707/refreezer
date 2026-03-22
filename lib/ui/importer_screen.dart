@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:logging/logging.dart';
 import 'package:spotify/spotify.dart' as spotify;
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -45,9 +45,7 @@ class _SpotifyImporterV1State extends State<SpotifyImporterV1> {
       setState(() => _data = data);
       return;
     } catch (e, st) {
-      if (kDebugMode) {
-        print('$e, $st');
-      }
+      Logger.root.severe('Error loading Spotify playlist', e, st);
       setState(() {
         _error = true;
         _loading = false;
@@ -150,7 +148,7 @@ class _SpotifyImporterV1State extends State<SpotifyImporterV1> {
                 onPressed: () async {
                   await _start();
                   if (context.mounted) {
-                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                    await Navigator.of(context).pushReplacement(MaterialPageRoute(
                         builder: (context) => const ImporterStatusScreen()));
                   }
                 },
@@ -354,7 +352,7 @@ class _SpotifyImporterV2State extends State<SpotifyImporterV2> {
     setState(() => _authorizing = false);
     //Redirect
     if (mounted) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
+      await Navigator.of(context).pushReplacement(MaterialPageRoute(
           builder: (context) => SpotifyImporterV2Main(spotify)));
     }
   }
@@ -373,6 +371,8 @@ class _SpotifyImporterV2State extends State<SpotifyImporterV2> {
               builder: (context) => SpotifyImporterV2Main(spotify)));
         }
       }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking saved Spotify credentials', e, st);
     });
 
     super.initState();
@@ -444,10 +444,10 @@ class _SpotifyImporterV2State extends State<SpotifyImporterV2> {
               onPressed: () async {
                 await Clipboard.setData(
                     const ClipboardData(text: 'http://localhost:42069'));
-                Fluttertoast.showToast(
+                unawaited(Fluttertoast.showToast(
                     msg: 'Copied'.i18n,
                     gravity: ToastGravity.BOTTOM,
-                    toastLength: Toast.LENGTH_SHORT);
+                    toastLength: Toast.LENGTH_SHORT));
               },
             ),
           ),
@@ -544,10 +544,10 @@ class _SpotifyImporterV2MainState extends State<SpotifyImporterV2Main> {
         _urlPlaylist = playlist;
       });
     } catch (e) {
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: 'Invalid/Unsupported URL'.i18n,
           gravity: ToastGravity.BOTTOM,
-          toastLength: Toast.LENGTH_SHORT);
+          toastLength: Toast.LENGTH_SHORT));
       setState(() => _urlLoading = false);
       return;
     }
@@ -555,7 +555,7 @@ class _SpotifyImporterV2MainState extends State<SpotifyImporterV2Main> {
 
   Future _startImport(String title, String description, String id) async {
     //Show loading dialog
-    showDialog(
+    await showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => PopScope(
@@ -581,14 +581,14 @@ class _SpotifyImporterV2MainState extends State<SpotifyImporterV2Main> {
       //Route
       if (mounted) {
         Navigator.of(context).pop();
-        Navigator.of(context).pushReplacement(MaterialPageRoute(
+        await Navigator.of(context).pushReplacement(MaterialPageRoute(
             builder: (context) => const ImporterStatusScreen()));
       }
     } catch (e) {
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: e.toString(),
           gravity: ToastGravity.BOTTOM,
-          toastLength: Toast.LENGTH_SHORT);
+          toastLength: Toast.LENGTH_SHORT));
       if (mounted) Navigator.of(context).pop();
       return;
     }

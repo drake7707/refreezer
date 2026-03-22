@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart';
 import 'package:http/http.dart' as http;
@@ -149,9 +148,6 @@ class SpotifyAPIWrapper {
 
   //Try authorize with saved credentials
   Future<bool> trySaved() async {
-    if (kDebugMode) {
-      print(settings.spotifyCredentials);
-    }
     if (settings.spotifyClientSecret == null) return false;
     final credentials = SpotifyApiCredentials(
         settings.spotifyClientId, settings.spotifyClientSecret,
@@ -184,17 +180,17 @@ class SpotifyAPIWrapper {
     ];
     final authUri =
         grant.getAuthorizationUrl(Uri.parse(redirectUri), scopes: scopes);
-    launchUrl(authUri);
+    await launchUrl(authUri);
     //Wait for code
     await for (HttpRequest request in _server!) {
       //Exit window
       request.response.headers.set('Content-Type', 'text/html; charset=UTF-8');
       request.response.write(
           '<body><h1>You can close this page and go back to ReFreezer.</h1></body><script>window.close();</script>');
-      request.response.close();
+      await request.response.close();
       //Get token
       if (request.uri.queryParameters['code'] != null) {
-        _server!.close();
+        await _server!.close();
         _server = null;
         responseUri = request.uri.toString();
         break;

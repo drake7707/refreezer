@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttericon/font_awesome5_icons.dart';
 import 'package:fluttericon/typicons_icons.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logging/logging.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import '../api/cache.dart';
 import '../api/deezer.dart';
@@ -22,7 +25,7 @@ import './tiles.dart';
 import 'downloads_screen.dart';
 import 'settings_screen.dart';
 
-openScreenByURL(String url) async {
+Future<void> openScreenByURL(String url) async {
   DeezerLinkResponse? res = await deezerAPI.parseLink(url);
   if (res == null || res.type == null) return;
 
@@ -34,17 +37,17 @@ openScreenByURL(String url) async {
       break;
     case DeezerLinkType.ALBUM:
       Album a = await deezerAPI.album(res.id!);
-      mainNavigatorKey.currentState
+      await mainNavigatorKey.currentState
           ?.push(MaterialPageRoute(builder: (context) => AlbumDetails(a)));
       break;
     case DeezerLinkType.ARTIST:
       Artist a = await deezerAPI.artist(res.id!);
-      mainNavigatorKey.currentState
+      await mainNavigatorKey.currentState
           ?.push(MaterialPageRoute(builder: (context) => ArtistDetails(a)));
       break;
     case DeezerLinkType.PLAYLIST:
       Playlist p = await deezerAPI.playlist(res.id!);
-      mainNavigatorKey.currentState
+      await mainNavigatorKey.currentState
           ?.push(MaterialPageRoute(builder: (context) => PlaylistDetails(p)));
       break;
   }
@@ -78,16 +81,14 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() => _loading = true);
       try {
         await openScreenByURL(_query!);
-      } catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
+      } catch (e, st) {
+        Logger.root.severe('Error opening URL: $_query', e, st);
       }
       setState(() => _loading = false);
       return;
     }
 
-    Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => SearchResultsScreen(
               _query ?? '',
               offline: _offline,
@@ -100,10 +101,14 @@ class _SearchScreenState extends State<SearchScreen> {
     //Check for connectivity and enable offline mode
     Connectivity().checkConnectivity().then((res) {
       if (res.isEmpty || res.contains(ConnectivityResult.none)) {
-        setState(() {
-          _offline = true;
-        });
+        if (mounted) {
+          setState(() {
+            _offline = true;
+          });
+        }
       }
+    }).catchError((e, st) {
+      Logger.root.warning('Error checking connectivity', e, st);
     });
 
     super.initState();
@@ -121,10 +126,8 @@ class _SearchScreenState extends State<SearchScreen> {
     late List sugg;
     try {
       sugg = await deezerAPI.searchSuggestions(_query!);
-    } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+    } catch (e, st) {
+      Logger.root.warning('Error loading search suggestions', e, st);
     }
 
     if (!_cancel) setState(() => _suggestions = sugg);
@@ -298,8 +301,16 @@ class _SearchScreenState extends State<SearchScreen> {
                     icon: const Icon(Typicons.waves),
                     onTap: () async {
                       // No channel for Flow...
-                      await GetIt.I<AudioPlayerHandler>()
-                          .playFromSmartTrackList(SmartTrackList(id: 'flow'));
+                      try {
+                        await GetIt.I<AudioPlayerHandler>()
+                            .playFromSmartTrackList(SmartTrackList(id: 'flow'));
+                      } catch (e, st) {
+                        Logger.root.severe('Error loading flow', e, st);
+                        unawaited(Fluttertoast.showToast(
+                            msg: 'Could not load tracks, please check your connection.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT));
+                      }
                     },
                   ),
                   SearchBrowseCard(
@@ -366,18 +377,26 @@ class _SearchScreenState extends State<SearchScreen> {
                   case SearchHistoryItemType.TRACK:
                     return TrackTile(
                       data,
-                      onTap: () {
+                      onTap: () async {
                         List<Track> queue = cache.searchHistory!
                             .where((h) => h.type == SearchHistoryItemType.TRACK)
                             .map<Track>((t) => t.data)
                             .toList();
-                        GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                            queue,
-                            data.id,
-                            QueueSource(
-                                text: 'Search history'.i18n,
-                                source: 'searchhistory',
-                                id: 'searchhistory'));
+                        try {
+                          await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                              queue,
+                              data.id,
+                              QueueSource(
+                                  text: 'Search history'.i18n,
+                                  source: 'searchhistory',
+                                  id: 'searchhistory'));
+                        } catch (e, st) {
+                          Logger.root.severe('Error playing from search history', e, st);
+                          unawaited(Fluttertoast.showToast(
+                              msg: 'Playback error, please try again.'.i18n,
+                              gravity: ToastGravity.BOTTOM,
+                              toastLength: Toast.LENGTH_SHORT));
+                        }
                       },
                       onHold: () {
                         MenuSheet m = MenuSheet();
@@ -571,15 +590,23 @@ class SearchResultsScreen extends StatelessWidget {
                   Track t = results.tracks![i];
                   return TrackTile(
                     t,
-                    onTap: () {
+                    onTap: () async {
                       cache.addToSearchHistory(t);
-                      GetIt.I<AudioPlayerHandler>().playFromTrackList(
-                          results.tracks!,
-                          t.id ?? '',
-                          QueueSource(
-                              text: 'Search'.i18n,
-                              id: query,
-                              source: 'search'));
+                      try {
+                        await GetIt.I<AudioPlayerHandler>().playFromTrackList(
+                            results.tracks!,
+                            t.id ?? '',
+                            QueueSource(
+                                text: 'Search'.i18n,
+                                id: query,
+                                source: 'search'));
+                      } catch (e, st) {
+                        Logger.root.severe('Error playing search result', e, st);
+                        unawaited(Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT));
+                                            }
                     },
                     onHold: () {
                       MenuSheet m = MenuSheet();
@@ -760,7 +787,7 @@ class SearchResultsScreen extends StatelessWidget {
                   return ShowTile(
                     s,
                     onTap: () async {
-                      Navigator.of(context).push(MaterialPageRoute(
+                      await Navigator.of(context).push(MaterialPageRoute(
                           builder: (context) => ShowScreen(s)));
                     },
                   );
@@ -812,11 +839,19 @@ class SearchResultsScreen extends StatelessWidget {
                     ),
                     onTap: () async {
                       //Load entire show, then play
-                      List<ShowEpisode> episodes =
-                          await deezerAPI.allShowEpisodes(e.show!.id ?? '');
-                      await GetIt.I<AudioPlayerHandler>().playShowEpisode(
-                          e.show!, episodes,
-                          index: episodes.indexWhere((ep) => e.id == ep.id));
+                      try {
+                        List<ShowEpisode> episodes =
+                            await deezerAPI.allShowEpisodes(e.show!.id ?? '');
+                        await GetIt.I<AudioPlayerHandler>().playShowEpisode(
+                            e.show!, episodes,
+                            index: episodes.indexWhere((ep) => e.id == ep.id));
+                      } catch (e, st) {
+                        Logger.root.severe('Error playing show episode', e, st);
+                        unawaited(Fluttertoast.showToast(
+                            msg: 'Playback error, please try again.'.i18n,
+                            gravity: ToastGravity.BOTTOM,
+                            toastLength: Toast.LENGTH_SHORT));
+                      }
                     },
                   );
                 }),
@@ -880,9 +915,17 @@ class TrackListScreen extends StatelessWidget {
           Track t = tracks[i];
           return TrackTile(
             t,
-            onTap: () {
-              GetIt.I<AudioPlayerHandler>()
-                  .playFromTrackList(tracks, t.id ?? '', queueSource);
+            onTap: () async {
+              try {
+                await GetIt.I<AudioPlayerHandler>()
+                    .playFromTrackList(tracks, t.id ?? '', queueSource);
+              } catch (e, st) {
+                Logger.root.severe('Error playing track from list', e, st);
+                unawaited(Fluttertoast.showToast(
+                    msg: 'Playback error, please try again.'.i18n,
+                    gravity: ToastGravity.BOTTOM,
+                    toastLength: Toast.LENGTH_SHORT));
+              }
             },
             onHold: () {
               MenuSheet m = MenuSheet();
@@ -1005,11 +1048,19 @@ class EpisodeListScreen extends StatelessWidget {
               ),
               onTap: () async {
                 //Load entire show, then play
-                List<ShowEpisode> episodes =
-                    await deezerAPI.allShowEpisodes(e.show!.id ?? '');
-                await GetIt.I<AudioPlayerHandler>().playShowEpisode(
-                    e.show!, episodes,
-                    index: episodes.indexWhere((ep) => e.id == ep.id));
+                try {
+                  List<ShowEpisode> episodes =
+                      await deezerAPI.allShowEpisodes(e.show!.id ?? '');
+                  await GetIt.I<AudioPlayerHandler>().playShowEpisode(
+                      e.show!, episodes,
+                      index: episodes.indexWhere((ep) => e.id == ep.id));
+                } catch (e, st) {
+                  Logger.root.severe('Error playing show episode', e, st);
+                  unawaited(Fluttertoast.showToast(
+                      msg: 'Playback error, please try again.'.i18n,
+                      gravity: ToastGravity.BOTTOM,
+                      toastLength: Toast.LENGTH_SHORT));
+                }
               },
             );
           },

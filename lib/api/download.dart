@@ -89,6 +89,8 @@ class DownloadManager {
 
       //Forward
       serviceEvents.add(e);
+    }, onError: (e, st) {
+      Logger.root.severe('Error in download service event stream', e, st);
     });
 
     await platform.invokeMethod('loadDownloads');
@@ -255,17 +257,31 @@ class DownloadManager {
       await b.commit();
 
       //Cache art
-      DefaultCacheManager().getSingleFile(track.albumArt?.thumb ?? '');
-      DefaultCacheManager().getSingleFile(track.albumArt?.full ?? '');
+      await DefaultCacheManager().getSingleFile(track.albumArt?.thumb ?? '');
+      await DefaultCacheManager().getSingleFile(track.albumArt?.full ?? '');
     }
 
     //Get path
     String path = _generatePath(track, private, isSingleton: isSingleton);
-    await platform.invokeMethod('addDownloads', [
-      await Download.jsonFromTrack(track, path,
-          private: private, quality: quality)
-    ]);
-    await start();
+    try {
+      await platform.invokeMethod('addDownloads', [
+        await Download.jsonFromTrack(track, path,
+            private: private, quality: quality)
+      ]);
+      await start();
+    } catch (e, st) {
+      Logger.root.severe('Failed to queue download for track ${track.id}', e, st);
+      // Rollback the DB offline flag so the track doesn't appear as offline without a file.
+      if (private) {
+        await db?.update('Tracks', {'offline': 0},
+            where: 'id == ?', whereArgs: [track.id]);
+      }
+      unawaited(Fluttertoast.showToast(
+          msg: 'Download failed, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT));
+      return false;
+    }
     return true;
   }
 
@@ -288,8 +304,8 @@ class DownloadManager {
     //Add to DB
     if (private) {
       //Cache art
-      DefaultCacheManager().getSingleFile(album.art?.thumb ?? '');
-      DefaultCacheManager().getSingleFile(album.art?.full ?? '');
+      await DefaultCacheManager().getSingleFile(album.art?.thumb ?? '');
+      await DefaultCacheManager().getSingleFile(album.art?.full ?? '');
 
       Batch b = db!.batch();
       b.insert('Albums', album.toSQL(off: true),
@@ -306,8 +322,24 @@ class DownloadManager {
       out.add(await Download.jsonFromTrack(t, _generatePath(t, private),
           private: private, quality: quality));
     }
-    await platform.invokeMethod('addDownloads', out);
-    await start();
+    try {
+      await platform.invokeMethod('addDownloads', out);
+      await start();
+    } catch (e, st) {
+      Logger.root.severe('Failed to queue download for album ${album.id}', e, st);
+      if (private) {
+        for (Track t in album.tracks ?? []) {
+          await db?.update('Tracks', {'offline': 0},
+              where: 'id == ?', whereArgs: [t.id]);
+        }
+        await db?.delete('Albums', where: 'id == ?', whereArgs: [album.id]);
+      }
+      unawaited(Fluttertoast.showToast(
+          msg: 'Download failed, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT));
+      return false;
+    }
   }
 
   Future addOfflinePlaylist(Playlist playlist,
@@ -337,8 +369,8 @@ class DownloadManager {
       for (Track t in (playlist.tracks ?? [])) {
         b = await _addTrackToDB(b, t, false);
         //Cache art
-        DefaultCacheManager().getSingleFile(t.albumArt?.thumb ?? '');
-        DefaultCacheManager().getSingleFile(t.albumArt?.full ?? '');
+        await DefaultCacheManager().getSingleFile(t.albumArt?.thumb ?? '');
+        await DefaultCacheManager().getSingleFile(t.albumArt?.full ?? '');
       }
       await b.commit();
     }
@@ -358,8 +390,24 @@ class DownloadManager {
           private: private,
           quality: quality));
     }
-    await platform.invokeMethod('addDownloads', out);
-    await start();
+    try {
+      await platform.invokeMethod('addDownloads', out);
+      await start();
+    } catch (e, st) {
+      Logger.root.severe('Failed to queue download for playlist ${playlist.id}', e, st);
+      if (private) {
+        for (Track t in playlist.tracks ?? []) {
+          await db?.update('Tracks', {'offline': 0},
+              where: 'id == ?', whereArgs: [t.id]);
+        }
+        await db?.delete('Playlists', where: 'id == ?', whereArgs: [playlist.id]);
+      }
+      unawaited(Fluttertoast.showToast(
+          msg: 'Download failed, please check your connection.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT));
+      return false;
+    }
   }
 
   //Get track and meta from offline DB
@@ -518,7 +566,7 @@ class DownloadManager {
 
       //Remove file
       try {
-        File(p.join(offlinePath!, t.id)).delete();
+        await File(p.join(offlinePath!, t.id)).delete();
       } catch (e) {
         Logger.root.severe('Error deleting offline track: ${t.id}', e);
       }
@@ -681,8 +729,11 @@ class DownloadManager {
 
   //Send settings to download service
   Future updateServiceSettings() async {
-    await platform.invokeMethod(
-        'updateSettings', settings.getServiceSettings());
+    try {
+      await platform.invokeMethod('updateSettings', settings.getServiceSettings());
+    } catch (e, st) {
+      Logger.root.severe('Failed to update download service settings', e, st);
+    }
   }
 
   //Check storage permission
@@ -694,10 +745,10 @@ class DownloadManager {
     )) {
       return true;
     } else {
-      Fluttertoast.showToast(
+      unawaited(Fluttertoast.showToast(
           msg: 'Storage permission denied!'.i18n,
           toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM);
+          gravity: ToastGravity.BOTTOM));
       return false;
     }
   }

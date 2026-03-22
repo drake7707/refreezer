@@ -119,7 +119,7 @@ class Cache {
 
   Future save() async {
     File file = File(await Cache.getPath());
-    file.writeAsString(jsonEncode(toJson()));
+    await file.writeAsString(jsonEncode(toJson()));
   }
 
   //JSON

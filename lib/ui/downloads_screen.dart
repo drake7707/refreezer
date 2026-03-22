@@ -243,7 +243,7 @@ class DownloadTile extends StatelessWidget {
 
   Future onClick(BuildContext context) async {
     if (download.state != DownloadState.DOWNLOADING && download.state != DownloadState.POST) {
-      showDialog(
+      await showDialog(
           context: context,
           builder: (context) {
             return AlertDialog(

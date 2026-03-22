@@ -233,14 +233,15 @@ class Settings {
     //Set default path, because async
     s.downloadPath = (await ExternalPath.getExternalStoragePublicDirectory(
         ExternalPath.DIRECTORY_MUSIC));
-    s.save();
+    settings = s; // make sure to set the settings because otherwise the downloadManager does not have the settings when it tries to update the service settings, which causes a crash
+    await s.save();
     return s;
   }
 
   Future save() async {
     File f = File(await getPath());
     await f.writeAsString(jsonEncode(toJson()));
-    downloadManager.updateServiceSettings();
+    await downloadManager.updateServiceSettings();
   }
 
   Future updateAudioServiceQuality() async {
@@ -357,7 +358,7 @@ class Settings {
               }),
             ),
             bottomAppBarTheme:
-                const BottomAppBarTheme(color: Color(0xfff5f5f5))),
+                const BottomAppBarThemeData(color: Color(0xfff5f5f5))),
         Themes.Dark: ThemeData(
             useMaterial3: false,
             brightness: Brightness.dark,
@@ -416,7 +417,7 @@ class Settings {
               }),
             ),
             bottomAppBarTheme:
-                const BottomAppBarTheme(color: Color(0xff424242))),
+                const BottomAppBarThemeData(color: Color(0xff424242))),
         Themes.Deezer: ThemeData(
             useMaterial3: false,
             brightness: Brightness.dark,
@@ -480,7 +481,7 @@ class Settings {
                 return null;
               }),
             ),
-            bottomAppBarTheme: const BottomAppBarTheme(color: deezerBottom), dialogTheme: DialogThemeData(backgroundColor: deezerBottom)),
+            bottomAppBarTheme: const BottomAppBarThemeData(color: deezerBottom), dialogTheme: DialogThemeData(backgroundColor: deezerBottom)),
         Themes.Black: ThemeData(
             useMaterial3: false,
             brightness: Brightness.dark,
@@ -544,7 +545,7 @@ class Settings {
                 return null;
               }),
             ),
-            bottomAppBarTheme: const BottomAppBarTheme(color: Colors.black), dialogTheme: DialogThemeData(backgroundColor: Colors.black))
+            bottomAppBarTheme: const BottomAppBarThemeData(color: Colors.black), dialogTheme: DialogThemeData(backgroundColor: Colors.black))
       };
 
   Future<String> getPath() async =>
