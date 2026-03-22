@@ -674,40 +674,70 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Flow
     if (queueSource == null) return;
 
-    List<Track> tracks = [];
-    switch (queueSource!.source) {
-      case 'flow':
-        tracks = await deezerAPI.flow(type: queueSource!.flowConfig);
-        break;
-      //SmartRadio/Artist radio
-      case 'smartradio':
-        tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
-        break;
-      //Library shuffle
-      case 'libraryshuffle':
-        tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
-        break;
-      case 'mix':
-        tracks = await deezerAPI.playMix(queueSource!.id ?? '');
-        break;
-      case 'playlist':
-        // Get current position
-        int pos = queue.value.length;
-        // Load 25 more tracks from playlist
-        tracks =
-            await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
-        break;
-      default:
-        Logger.root.info('Reached end of queue source: ${queueSource!.source}');
-        break;
+    const int maxRetries = 3;
+    const Duration retryDelay = Duration(milliseconds: 200);
+    // Capture base playlist position once to ensure consistent pagination
+    final int basePos = queue.value.length;
+
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      if (attempt > 0) {
+        await Future.delayed(retryDelay);
+      }
+
+      List<Track> tracks = [];
+      switch (queueSource!.source) {
+        case 'flow':
+          tracks = await deezerAPI.flow(type: queueSource!.flowConfig);
+          break;
+        //SmartRadio/Artist radio
+        case 'smartradio':
+          tracks = await deezerAPI.smartRadio(queueSource!.id ?? '');
+          break;
+        //Library shuffle
+        case 'libraryshuffle':
+          tracks = await deezerAPI.libraryShuffle(start: queue.value.length);
+          break;
+        case 'mix':
+          tracks = await deezerAPI.playMix(queueSource!.id ?? '');
+          break;
+        case 'playlist':
+          // Advance offset by 25 per retry to avoid re-fetching the same page
+          int pos = basePos + (attempt * 25);
+          // Load 25 more tracks from playlist
+          tracks =
+              await deezerAPI.playlistTracksPage(queueSource!.id!, pos, nb: 25);
+          break;
+        default:
+          Logger.root
+              .info('Reached end of queue source: ${queueSource!.source}');
+          return;
+      }
+
+      // If the API returned nothing at all, retrying won't help
+      if (tracks.isEmpty) {
+        Logger.root.info('No tracks returned by source, giving up.');
+        return;
+      }
+
+      // Deduplicate tracks already in queue with the same id
+      List<String> queueIds = queue.value.map((mi) => mi.id).toList();
+      tracks.removeWhere((track) => queueIds.contains(track.id));
+
+      if (tracks.isNotEmpty) {
+        List<MediaItem> extraTracks =
+            tracks.map<MediaItem>((t) => t.toMediaItem()).toList();
+        await addQueueItems(extraTracks);
+        return;
+      }
+
+      if (attempt + 1 < maxRetries) {
+        Logger.root.info(
+            'All fetched tracks were duplicates, retrying (attempt ${attempt + 1}/$maxRetries)');
+      }
     }
-    
-    // Deduplicate tracks already in queue with the same id
-    List<String> queueIds = queue.value.map((mi) => mi.id).toList();
-    tracks.removeWhere((track) => queueIds.contains(track.id));
-    List<MediaItem> extraTracks =
-        tracks.map<MediaItem>((t) => t.toMediaItem()).toList();
-    await addQueueItems(extraTracks);
+
+    Logger.root
+        .info('No new tracks found after $maxRetries attempts, giving up.');
   }
 
   void _playbackError(err) {
