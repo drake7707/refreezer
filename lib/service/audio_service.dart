@@ -713,6 +713,12 @@ class AudioPlayerHandler extends BaseAudioHandler
           return;
       }
 
+      // If the API returned nothing at all, retrying won't help
+      if (tracks.isEmpty) {
+        Logger.root.info('No tracks returned by source, giving up.');
+        return;
+      }
+
       // Deduplicate tracks already in queue with the same id
       List<String> queueIds = queue.value.map((mi) => mi.id).toList();
       tracks.removeWhere((track) => queueIds.contains(track.id));
