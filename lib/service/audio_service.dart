@@ -1070,14 +1070,21 @@ class AudioPlayerHandler extends BaseAudioHandler
         return;
       }
     }
+    if ((stl.tracks?.length ?? 0) == 0) {
+      unawaited(Fluttertoast.showToast(
+          msg: 'No tracks available in this list.'.i18n,
+          gravity: ToastGravity.BOTTOM,
+          toastLength: Toast.LENGTH_SHORT));
+      return;
+    }
+    final List<Track> tracks = stl.tracks!;
     QueueSource queueSource = QueueSource(
         id: stl.id,
         source: (stl.id == 'flow') ? 'flow' : 'smarttracklist',
         text: stl.title ??
             ((stl.id == 'flow') ? 'Flow'.i18n : 'Smart track list'.i18n),
         flowConfig: stl.flowType);
-    await playFromTrackList(
-        stl.tracks ?? [], stl.tracks?[0].id ?? '', queueSource);
+    await playFromTrackList(tracks, tracks.first.id ?? '', queueSource);
   }
 
   //Start visualizer
