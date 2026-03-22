@@ -164,11 +164,19 @@ class AudioPlayerHandler extends BaseAudioHandler
       if (queueLength - queueIndex == 1) {
         Logger.root.info('loaded last track of queue, adding more tracks');
         // Await so that new tracks are appended before the queue is persisted.
-        await _onQueueEnd();
+        try {
+          await _onQueueEnd();
+        } catch (e, st) {
+          Logger.root.severe('Error loading more tracks at queue end', e, st);
+        }
       }
 
       //Save queue
-      await _saveQueueToFile();
+      try {
+        await _saveQueueToFile();
+      } catch (e, st) {
+        Logger.root.severe('Error saving queue to file', e, st);
+      }
       //Add to history
       await _addToHistory(item);
     });
@@ -356,8 +364,11 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   Future<void> moveQueueItem(int currentIndex, int newIndex) async {
     _rearranging = true;
-    await _playlist.move(currentIndex, newIndex);
-    _rearranging = false;
+    try {
+      await _playlist.move(currentIndex, newIndex);
+    } finally {
+      _rearranging = false;
+    }
     playbackState.add(playbackState.value.copyWith());
   }
 
@@ -397,8 +408,11 @@ class AudioPlayerHandler extends BaseAudioHandler
   Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
     final enabled = shuffleMode == AudioServiceShuffleMode.all;
     _rearranging = true;
-    await _player.setShuffleModeEnabled(enabled);
-    _rearranging = false;
+    try {
+      await _player.setShuffleModeEnabled(enabled);
+    } finally {
+      _rearranging = false;
+    }
     if (enabled) {
       await _player.shuffle();
     }
@@ -606,26 +620,29 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Set requested index
     _requestedIndex = index;
 
-    // Mark as intentional queue change so the idle state from clearing the
-    // playlist is not treated as a playback error.
-    _intentionalStop = true;
-    //Clear old playlist from just_audio
-    await _playlist.clear();
-    _intentionalStop = false;
-
-    // Convert new queue to AudioSources playlist & add to just_audio (Concurrent approach)
-    await _playlist.addAll(await _itemsToSources(newQueue));
-
-    // Wait for player to be ready before seeking
-    await _waitForPlayerReadiness();
-
-    //Seek to correct position & index
     try {
-      await _player.seek(position, index: index);
-    } catch (e, st) {
-      Logger.root.severe('Error loading tracks', e, st);
+      // Mark as intentional queue change so the idle state from clearing the
+      // playlist is not treated as a playback error.
+      _intentionalStop = true;
+      //Clear old playlist from just_audio
+      await _playlist.clear();
+      _intentionalStop = false;
+
+      // Convert new queue to AudioSources playlist & add to just_audio (Concurrent approach)
+      await _playlist.addAll(await _itemsToSources(newQueue));
+
+      // Wait for player to be ready before seeking
+      await _waitForPlayerReadiness();
+
+      //Seek to correct position & index
+      try {
+        await _player.seek(position, index: index);
+      } catch (e, st) {
+        Logger.root.severe('Error loading tracks', e, st);
+      }
+    } finally {
+      _requestedIndex = -1;
     }
-    _requestedIndex = -1;
   }
 
   //Replace queue, play specified item index
@@ -639,14 +656,17 @@ class AudioPlayerHandler extends BaseAudioHandler
     //Set requested index
     _requestedIndex = index;
 
-    queueSource = newQueueSource;
-    await updateQueue(newQueue);
-    _intentionalStop = false;
-    await setShuffleMode(AudioServiceShuffleMode.none);
-    await skipToQueueItem(index);
+    try {
+      queueSource = newQueueSource;
+      await updateQueue(newQueue);
+      _intentionalStop = false;
+      await setShuffleMode(AudioServiceShuffleMode.none);
+      await skipToQueueItem(index);
 
-    await play();
-    _requestedIndex = -1;
+      await play();
+    } finally {
+      _requestedIndex = -1;
+    }
   }
 
   /// Attempt to load more tracks when queue ends
@@ -732,17 +752,25 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (_scrobblenautReady && !(_loggedTrackId == item.id)) {
       Logger.root.info('scrobbling track ${item.id} to recently LastFM');
       _loggedTrackId = item.id;
-      await _scrobblenaut?.track.scrobble(
-        track: item.title,
-        artist: item.artist ?? '',
-        album: item.album,
-      );
+      try {
+        await _scrobblenaut?.track.scrobble(
+          track: item.title,
+          artist: item.artist ?? '',
+          album: item.album,
+        );
+      } catch (e, st) {
+        Logger.root.severe('Error scrobbling track ${item.id} to LastFM', e, st);
+      }
     }
 
     if (cache.history.isNotEmpty && cache.history.last.id == item.id) return;
     Logger.root.info('adding track ${item.id} to recently played history');
     cache.history.add(Track.fromMediaItem(item));
-    await cache.save();
+    try {
+      await cache.save();
+    } catch (e, st) {
+      Logger.root.severe('Error saving cache after adding track to history', e, st);
+    }
   }
 
   //Get queue save file path
