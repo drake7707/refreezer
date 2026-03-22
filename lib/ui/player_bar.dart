@@ -2,6 +2,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../service/audio_service.dart';
 import '../settings.dart';
@@ -55,7 +56,10 @@ class _PlayerBarState extends State<PlayerBar> {
         }*/
       },
       child: StreamBuilder(
-          stream: Stream.periodic(const Duration(milliseconds: 250)),
+          stream: Rx.merge<Object?>([
+            Stream.periodic(const Duration(milliseconds: 250)),
+            GetIt.I<AudioPlayerHandler>().mediaItem,
+          ]),
           builder: (BuildContext context, AsyncSnapshot snapshot) {
             if (GetIt.I<AudioPlayerHandler>().mediaItem.value == null) {
               return const SizedBox(
