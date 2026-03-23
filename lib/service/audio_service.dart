@@ -662,11 +662,14 @@ class AudioPlayerHandler extends BaseAudioHandler
       _intentionalStop = false;
       await setShuffleMode(AudioServiceShuffleMode.none);
       await skipToQueueItem(index);
-
-      await play();
     } finally {
+      // Reset _requestedIndex before play() so that automatic track advances
+      // during play() (e.g. while _addToHistory is awaited) are not blocked
+      // by the combineLatest3 filter in _mediaItemSub.
       _requestedIndex = -1;
     }
+
+    await play();
   }
 
   /// Attempt to load more tracks when queue ends
