@@ -527,7 +527,7 @@ class MenuSheet {
   void defaultPlaylistMenu(Playlist playlist,
       {required BuildContext context, List<Widget> options = const [], Function? onRemove, Function? onUpdate}) {
     show(context, [
-      (playlist.library != null)
+      (playlist.library != null && playlist.library == true)
           ? removePlaylistLibrary(playlist, context, onRemove: onRemove)
           : addPlaylistLibrary(playlist, context),
       addPlaylistOffline(playlist, context),
